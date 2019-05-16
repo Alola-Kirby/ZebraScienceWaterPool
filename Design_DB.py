@@ -1,13 +1,23 @@
 from DBClass import DbOperate
-
-Operate=DbOperate()
-# for item in Operate.client.Business.scmessage.find():
-#     item['collect_papers']=['412dc4a5eac738aa583161b4f043e684']
-#     Operate.client.Business.scmessage.update({'scid':item['scid']},{'$set':item})
-
+import random
 '''
-用户表插入userid字段
+修改数据库，更改数据库字段名，新增字段
 '''
-for item in Operate.client.Business.user.find():
-    item['userid']='16211020'
-    Operate.client.Business.user.update({'_id':item['_id']},{'$set':item})
+class ModifyDB():
+    Operate=DbOperate()
+    db=Operate.client.Business
+    '''
+    更改collection集合的字段名，由old_name改为new_name
+    '''
+    def change_fieldname(self,collection,old_name,new_name):
+        self.db[collection].update({},{$rename:{old_name:new_name}},False,True )
+
+    '''
+    在collection中新增字段，字段名,初始值
+    给所有的document新增一个字段{'field_name':'initial_value'}
+    initial_values是一个包含初始值取值范围的列表，随机从其中取出值来给新字段复制
+    '''
+    def add_field(self,collection,field_name,initial_values):
+        for item in self.db[collection].find():
+            item[field_name]=random.choice(initial_values)
+            self.db[collection].update({'_id':item['_id']},{'$set':item})
