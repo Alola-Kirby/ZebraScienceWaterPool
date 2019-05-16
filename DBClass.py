@@ -1,7 +1,7 @@
 import Config
 from pymongo import MongoClient
 from json import dumps
-class DbOperate:
+class DbOperate():
     '''
     连接数据库
     '''
@@ -32,5 +32,3 @@ class DbOperate:
         else:
             state={'state':'yes','reasons':'用户已收藏该资源'}
         return dumps(state)
-
-    
