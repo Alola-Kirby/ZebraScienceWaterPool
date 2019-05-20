@@ -22,6 +22,19 @@ class DbOperate:
         return col
 
     '''
+    将url中的scholarID提取出来
+    '''
+    def scurl2id(self, url):
+        pattern = re.compile('scholarID\/(.*?)(\?.*?|\s|\Z)')
+        results = pattern.findall(url)
+        for result in results:
+            if len(result) > 0:
+                return result[0]
+            else:
+                print('url转id错误！')
+                return ''
+
+    '''
     1. 邮箱查重 验证码生成并存入数据库 √
     '''
     def generate_email_code(self, email):
@@ -61,7 +74,7 @@ class DbOperate:
             return dumps(res, ensure_ascii=False)
 
     '''
-    2. 注册用户
+    2. 注册用户 √
     '''
     def create_user(self, password, email, username, avatar, email_code):
         res = {'state': 'fail', 'reason': '网络出错或BUG出现！'}
@@ -78,7 +91,8 @@ class DbOperate:
                             'password': password,
                             'avatar': avatar,
                             'user_type': 'USER',
-                            'star_list': []
+                            'star_list': [],
+                            'follow_list': []
                            }
                 self.getCol('user').insert_one(newuser)
                 self.getCol('tempcode').delete_one(real_code)
@@ -103,12 +117,14 @@ class DbOperate:
         res = {'state': 'fail', 'reason': '网络出错或BUG出现！'}
         try:
             find_user = self.getCol('user').find_one({'email': email})
+            # 搜索到唯一用户
             if find_user:
                 real_psw = find_user['password']
                 if real_psw == password:
                     res['state'] = 'success'
                 else:
                     res['reason'] = '密码错误'
+            # 用户不存在
             else:
                 res['reason'] = '用户不存在'
             return dumps(res, ensure_ascii=False)
@@ -116,18 +132,31 @@ class DbOperate:
             return dumps(res, ensure_ascii=False)
 
     '''
-    4. 查询专家
+    4. 查询专家（不在意专家是否注册）（返回 专家scolarID 专家姓名 机构名称 被引次数 成果数 所属领域） √
     '''
     def search_professor(self, professor_name):
         res = {'state': 'fail', 'reason': '网络出错或BUG出现！'}
         try:
-            experts = self.getCol('user').find({'username': professor_name, 'user_type': 'EXPERT'})
-            if experts:
-                experts_list = None
+            # 不在意专家是否已注册
+            experts = self.getCol('scmessage').find({'name': professor_name})
+            # 在专家总表中搜索到该姓名专家
+            if experts.count() != 0:
+                experts_list = []
+                # 根据所查同名专家列表experts，逐个专家提取其中基本信息到tmp中，并放入结果experts_list中
+                for one_exp in experts:
+                    tmp = {}
+                    tmp['scid'] = one_exp['scid']
+                    tmp['name'] = one_exp['name']
+                    tmp['mechanism'] = one_exp['mechanism']
+                    tmp['citedtimes'] = one_exp['citedtimes']
+                    tmp['resultsnumber'] = one_exp['resultsnumber']
+                    tmp['field'] = one_exp['field']
+                    experts_list.append(tmp)
                 res['msg'] = experts_list
                 res['state'] = 'success'
+            # 专家总表中没有记录该姓名专家信息
             else:
-                res['reason'] = '该专家不存在'
+                res['reason'] = '未搜索到该专家'
             return dumps(res, ensure_ascii=False)
         except:
             return dumps(res, ensure_ascii=False)
@@ -138,17 +167,45 @@ class DbOperate:
     def get_professor_details(self, professor_id):
         res = {'state': 'fail', 'reason': '网络出错或BUG出现！'}
         try:
-            pass
+            find_exp = self.getCol('scmessage').find_one({'scid': professor_id})
+            # 专家总表中查询到该专家
+            if find_exp:
+                # 去除部分没用的字段
+                find_exp.pop('_id')
+                find_exp.pop('scurl')
+                find_exp.pop('collect_papers')
+                # 对于copinfo（合作专家）字段，从其中的url字段提取scolarID，并将其修改为scid字段
+                tmp = find_exp['copinfo']
+                for one_cop in tmp:
+                    pass
+                # 设置返回值
+                res['state'] = 'success'
+                res['msg'] = find_exp
+            # 该专家不存在
+            else:
+                res['reason'] = '该专家不存在'
+            return dumps(res, ensure_ascii=False)
         except:
             return dumps(res, ensure_ascii=False)
 
     '''
     6. 获取用户信息
     '''
-    def get_user_details(self, user_id):
+    def get_user_details(self, email):
         res = {'state': 'fail', 'reason': '网络出错或BUG出现！'}
         try:
-            pass
+            find_user = self.getCol('user').find_one({'email': email})
+            # 搜索到指定用户
+            if find_user:
+                find_user.pop('_id')
+                find_user.pop('password')
+                find_user.pop('user_type')
+                res['state'] = 'success'
+                res['msg'] = find_user
+            # 用户不存在
+            else:
+                res['reason'] = '用户不存在'
+            return dumps(res, ensure_ascii=False)
         except:
             return dumps(res, ensure_ascii=False)
 
