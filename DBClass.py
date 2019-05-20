@@ -1,3 +1,4 @@
+import re
 import Config
 import random
 import time
@@ -161,7 +162,7 @@ class DbOperate:
             return res
 
     '''
-    5. 获取专家信息
+    5. 获取专家信息 √
     '''
     def get_professor_details(self, professor_id):
         res = {'state': 'fail', 'reason': '网络出错或BUG出现！'}
@@ -175,8 +176,11 @@ class DbOperate:
                 find_exp.pop('collect_papers')
                 # 对于copinfo（合作专家）字段，从其中的url字段提取scolarID，并将其修改为scid字段
                 tmp = find_exp['copinfo']
+                res['reason'] = '专家ID提取失败'
                 for one_cop in tmp:
-                    pass
+                    t_scholarID = self.scurl2id(one_cop['url'])
+                    one_cop.pop('url')
+                    one_cop['scid'] = t_scholarID
                 # 设置返回值
                 res['state'] = 'success'
                 res['msg'] = find_exp
