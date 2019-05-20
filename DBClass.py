@@ -2,7 +2,6 @@ import Config
 import random
 import time
 from pymongo import MongoClient
-from json import dumps
 
 class DbOperate:
     '''
@@ -259,7 +258,7 @@ class DbOperate:
         except: 
             res = {'state': 'fail', 'reason': '更新数据库失败'}
         finally: 
-            return dumps(res, ensure_ascii=True)
+            return res
 
     '''
     11
@@ -271,7 +270,7 @@ class DbOperate:
         user = self.getCol('user').find_one({'email':  email})
         if paper_id not in user['star_list']:
             res = {'state': 'no', 'reasons': '用户尚未收藏该资源'}
-        return dumps(res, ensure_ascii=True)
+        return res
 
     '''
     12
@@ -293,7 +292,7 @@ class DbOperate:
         except: 
             res = {'state': 'fail', 'reason': '更新数据库失败'}
         finally: 
-            return dumps(res, ensure_ascii=True)
+            return res
 
     '''
     13
@@ -305,7 +304,7 @@ class DbOperate:
         res = {'state': 'yes', 'reason': '用户已关注该专家'}
         if professor_id not in user['follow_list']: 
             res = {'state': 'no', 'reason': '用户未关注该专家'}
-        return dumps(res, ensure_ascii=True)
+        return res
     
     '''
     14 
@@ -330,7 +329,7 @@ class DbOperate:
             res = {'state': 'fail', 'reason': '数据库更新失败'}
         finally: 
             print(res)
-            return dumps(res, ensure_ascii=True)
+            return res
 
     '''
     15
@@ -348,7 +347,7 @@ class DbOperate:
             res = {'state': 'fail', 'reason': '数据库更新失败'}
         finally: 
             print(res)
-            return dumps(res, ensure_ascii=True)
+            return res
 
     '''
     16
