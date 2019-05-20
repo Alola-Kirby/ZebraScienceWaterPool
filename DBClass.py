@@ -278,7 +278,7 @@ class DbOperate:
     测试成功！
     '''
     def follow(self, email, professor_id): 
-        res={'state': 'success', 'reason': '用户已关注该学者'}
+        res = {'state': 'success', 'reason': '用户已关注该学者'}
         try: 
             user = self.getCol('user').find_one({'email': email})
             follow_list = user['follow_list']
@@ -311,7 +311,7 @@ class DbOperate:
     修改个人资料，专家不可改名
     测试成功，但是不知是否要判断修改后的用户名或头像与之前一样
     '''
-    def information_change(self, email, username, avatar): 
+    def change_info(self, email, username, avatar):
         user = self.getCol('user').find_one({'email':  email})
         res = {'state': 'success', 'reason': '修改用户名成功'}
         try: 
@@ -335,7 +335,7 @@ class DbOperate:
     15
     修改密码，不知是否需要对新的密码进行判断，比如判断其长度以及是否太简单
     '''
-    def password_change(self, email, old_password, new_password): 
+    def change_pwd(self, email, old_password, new_password):
         user = self.getCol('user').find_one({'email':  email})
         res = {'state':  'success',  'reason':  '修改密码成功'}
         try: 
@@ -353,7 +353,7 @@ class DbOperate:
     16
     增加科技资源
     '''
-    def source_add(self, professor_id, paper_url): 
+    def add_resource(self, professor_id, paper_url):
         pass
 
     '''
