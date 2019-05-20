@@ -69,9 +69,9 @@ class DbOperate:
                 res['state'] = 'success'
             else:
                 res['reason'] = '邮箱已被注册'
-            return dumps(res, ensure_ascii=False)
+            return res
         except:
-            return dumps(res, ensure_ascii=False)
+            return res
 
     '''
     2. 注册用户 √
@@ -106,9 +106,9 @@ class DbOperate:
                 res['reason'] = '验证码错误'
             else:
                 res['reason'] = '没有记录该用户获取过验证码'
-            return dumps(res, ensure_ascii=False)
+            return res
         except:
-            return dumps(res, ensure_ascii=False)
+            return res
 
     '''
     3. 比对密码 √
@@ -127,9 +127,9 @@ class DbOperate:
             # 用户不存在
             else:
                 res['reason'] = '用户不存在'
-            return dumps(res, ensure_ascii=False)
+            return res
         except:
-            return dumps(res, ensure_ascii=False)
+            return res
 
     '''
     4. 查询专家（不在意专家是否注册）（返回 专家scolarID 专家姓名 机构名称 被引次数 成果数 所属领域） √
@@ -157,9 +157,9 @@ class DbOperate:
             # 专家总表中没有记录该姓名专家信息
             else:
                 res['reason'] = '未搜索到该专家'
-            return dumps(res, ensure_ascii=False)
+            return res
         except:
-            return dumps(res, ensure_ascii=False)
+            return res
 
     '''
     5. 获取专家信息
@@ -184,9 +184,9 @@ class DbOperate:
             # 该专家不存在
             else:
                 res['reason'] = '该专家不存在'
-            return dumps(res, ensure_ascii=False)
+            return res
         except:
-            return dumps(res, ensure_ascii=False)
+            return res
 
     '''
     6. 获取用户信息
@@ -205,9 +205,9 @@ class DbOperate:
             # 用户不存在
             else:
                 res['reason'] = '用户不存在'
-            return dumps(res, ensure_ascii=False)
+            return res
         except:
-            return dumps(res, ensure_ascii=False)
+            return res
 
     '''
     7. 获取机构信息
@@ -217,7 +217,7 @@ class DbOperate:
         try:
             pass
         except:
-            return dumps(res, ensure_ascii=False)
+            return res
 
     '''
     8. 查询论文
@@ -227,7 +227,7 @@ class DbOperate:
         try:
             pass
         except:
-            return dumps(res, ensure_ascii=False)
+            return res
 
     '''
     9. 查询机构
@@ -237,7 +237,7 @@ class DbOperate:
         try:
             pass
         except:
-            return dumps(res, ensure_ascii=False)
+            return res
 #######################################################接口 10-18#######################################################
     '''
     10
