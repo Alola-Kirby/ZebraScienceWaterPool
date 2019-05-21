@@ -179,6 +179,8 @@ class DbOperate:
                 res['reason'] = '专家ID提取失败'
                 for one_cop in tmp:
                     t_scholarID = self.scurl2id(one_cop['url'])
+                    if t_scholarID == '':
+                        gg = 1 / 0
                     one_cop.pop('url')
                     one_cop['scid'] = t_scholarID
                 # 设置返回值
@@ -240,12 +242,22 @@ class DbOperate:
             return res
 
     '''
-    7. 获取机构信息
+    7. 获取机构信息 √
     '''
-    def get_organization_details(self, organization_id):
+    def get_organization_details(self, organization_name):
         res = {'state': 'fail', 'reason': '网络出错或BUG出现！'}
         try:
-            pass
+            find_org = self.getCol('mechanism').find_one({'mechanism': organization_name})
+            # 成功搜索到该机构
+            if find_org:
+                find_org.pop('_id')
+                # 之后在这里可能进行对简介部分字符串（长度、格式）的处理
+                res['state'] = 'success'
+                res['msg'] = find_org
+            # 未搜索到该机构
+            else:
+                res['reason'] = '未搜索到该机构'
+            return res
         except:
             return res
 
