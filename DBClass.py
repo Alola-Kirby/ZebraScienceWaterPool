@@ -262,22 +262,75 @@ class DbOperate:
             return res
 
     '''
-    8. 查询论文
+    8-1. 查询论文（速度比较慢，返回的基本信息有哪些待确认） √
     '''
     def search_paper(self, title):
         res = {'state': 'fail', 'reason': '网络出错或BUG出现！'}
         try:
-            pass
+            # 根据标题模糊查询
+            papers = self.getCol('sci_source').find({'name': {'$regex': title}})
+            # 根据标题模糊匹配查找到相关论文列表
+            if papers.count() != 0:
+                papers_list = []
+                # 根据所查到的论文列表papers，逐个论文提取其中基本信息（去除不必要字段），并放入结果papers_list中
+                for one_paper in papers:
+                    one_paper.pop('_id')
+                    one_paper.pop('source_url')
+                    one_paper.pop('free_download_url')
+                    # 之后在这里可能需要对过长的摘要做一些内容上的删减
+                    papers_list.append(one_paper)
+                res['msg'] = papers_list
+                res['state'] = 'success'
+            # 根据标题模糊匹配未查找到相关论文
+            else:
+                res['reason'] = '未查找到相关论文'
+            return res
         except:
             return res
 
     '''
-    9. 查询机构
+    8-2. 获取论文全部信息 √
+    '''
+    def get_paper_details(self, paper_id):
+        res = {'state': 'fail', 'reason': '网络出错或BUG出现！'}
+        try:
+            find_paper = self.getCol('sci_source').find_one({'paperid': paper_id})
+            # 成功搜索到该论文
+            if find_paper:
+                find_paper.pop('_id')
+                # 之后在这里可能对论文的数据内容做处理，暂时返回全部内容
+                res['state'] = 'success'
+                res['msg'] = find_paper
+            # 未搜索到该论文
+            else:
+                res['reason'] = '未搜索到该论文'
+            return res
+        except:
+            return res
+
+    '''
+    9. 查询机构（是否需要返回简介有待确认） √
     '''
     def search_organization(self, organization_name):
         res = {'state': 'fail', 'reason': '网络出错或BUG出现！'}
         try:
-            pass
+            # 根据名称模糊查询
+            orgs = self.getCol('mechanism').find({'mechanism': {'$regex': organization_name}})
+            # 根据名称模糊匹配查找到相关机构列表
+            if orgs.count() != 0:
+                org_list = []
+                # 根据所查到的机构列表orgs，逐个机构提取其中基本信息（去除不必要字段），并放入结果org_list中
+                for one_org in orgs:
+                    one_org.pop('_id')
+                    one_org.pop('url')
+                    # 之后在这里可能需要对简介部分做一些内容上的删减
+                    org_list.append(one_org)
+                res['msg'] = org_list
+                res['state'] = 'success'
+            # 根据名称模糊匹配未查找到相关机构
+            else:
+                res['reason'] = '未查找到相关机构'
+            return res
         except:
             return res
 #######################################################接口 10-18#######################################################
