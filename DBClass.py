@@ -519,7 +519,7 @@ class DbOperate:
     The 19th Method
     评论资源
     '''
-    def conmment(self, id, paper_id, comment_str):
+    def comment(self, id, paper_id, comment_str):
         state = {'state': 'success', "reasons": ""}
         comment_list = self.client.Business.comment
         papers = self.client.Business.sci_source
@@ -541,7 +541,7 @@ class DbOperate:
     The 20th Method
     回复评论
     '''
-    def reply_conmment(self, comment_id, userid, comment_str):
+    def reply_comment(self, comment_id, userid, comment_str):
         state = {'state': 'success', "reasons": ""}
         comment_list = self.client.Business.comment
         user_collection = self.client.Business.user
@@ -562,7 +562,7 @@ class DbOperate:
     The 21st Method
     删除评论
     '''
-    def delete_conmment(self, comment_id):
+    def delete_comment(self, comment_id):
         state = {'state': 'success', "reasons": ""}
         comment_list = self.client.Business.comment
         if comment_list.find_one({"_id": ObjectId(comment_id)}) is None:
