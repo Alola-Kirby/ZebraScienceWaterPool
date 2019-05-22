@@ -36,6 +36,43 @@ class DbOperate:
                 return ''
 
     '''
+    获取需要显示在页面上的用户数据，并修改res
+    '''
+    def get_user_data(self, find_user, res):
+        # 去掉某些不必要字段
+        find_user.pop('_id')
+        find_user.pop('password')
+        # 将star_list和follow_list中的id和简略信息一并返回
+        # 令star_list列表中存放“资源的简略信息”
+        tmp_star = copy.deepcopy(find_user['star_list'])
+        find_user['star_list'].clear()
+        res['reason'] = '收藏列表获取失败'
+        for one_star in tmp_star:
+            star_info = self.getCol('sci_source').find_one({'paperid': one_star})
+            star_info.pop('_id')
+            star_info.pop('source_url')
+            star_info.pop('free_download_url')
+            star_info.pop('abstract')
+            find_user['star_list'].append(star_info)
+        # 令follow_list列表中存放“用户的简略信息”
+        tmp_follow = copy.deepcopy(find_user['follow_list'])
+        find_user['follow_list'].clear()
+        res['reason'] = '关注列表获取失败'
+        for one_follow in tmp_follow:
+            follow_info_all = self.getCol('scmessage').find_one({'scid': one_follow})
+            follow_info_simple = {}
+            follow_info_simple['scid'] = one_follow
+            follow_info_simple['name'] = follow_info_all['name']
+            follow_info_simple['mechanism'] = follow_info_all['mechanism']
+            follow_info_simple['citedtimes'] = follow_info_all['citedtimes']
+            follow_info_simple['resultsnumber'] = follow_info_all['resultsnumber']
+            follow_info_simple['field'] = follow_info_all['field']
+            find_user['follow_list'].append(follow_info_simple)
+        # 设置返回值
+        res['state'] = 'success'
+        res['msg'] = find_user
+
+    '''
     1. 邮箱查重 验证码生成并存入数据库 √
     '''
     def generate_email_code(self, email):
@@ -111,7 +148,7 @@ class DbOperate:
             return res
 
     '''
-    3. 比对密码 √
+    3. 比对密码并返回用户信息 √
     '''
     def compare_password(self, password, email):
         res = {'state': 'fail', 'reason': '网络出错或BUG出现！'}
@@ -121,7 +158,7 @@ class DbOperate:
             if find_user:
                 real_psw = find_user['password']
                 if real_psw == password:
-                    res['state'] = 'success'
+                    self.get_user_data(find_user, res)
                 else:
                     res['reason'] = '密码错误'
             # 用户不存在
@@ -202,38 +239,7 @@ class DbOperate:
             find_user = self.getCol('user').find_one({'email': email})
             # 搜索到指定用户
             if find_user:
-                # 去掉某些不必要字段
-                find_user.pop('_id')
-                find_user.pop('password')
-                # 将star_list和follow_list中的id和简略信息一并返回
-                # 令star_list列表中存放“资源的简略信息”
-                tmp_star = copy.deepcopy(find_user['star_list'])
-                find_user['star_list'].clear()
-                res['reason'] = '收藏列表获取失败'
-                for one_star in tmp_star:
-                    star_info = self.getCol('sci_source').find_one({'paperid': one_star})
-                    star_info.pop('_id')
-                    star_info.pop('source_url')
-                    star_info.pop('free_download_url')
-                    star_info.pop('abstract')
-                    find_user['star_list'].append(star_info)
-                # 令follow_list列表中存放“用户的简略信息”
-                tmp_follow = copy.deepcopy(find_user['follow_list'])
-                find_user['follow_list'].clear()
-                res['reason'] = '关注列表获取失败'
-                for one_follow in tmp_follow:
-                    follow_info_all = self.getCol('scmessage').find_one({'scid': one_follow})
-                    follow_info_simple = {}
-                    follow_info_simple['scid'] = one_follow
-                    follow_info_simple['name'] = follow_info_all['name']
-                    follow_info_simple['mechanism'] = follow_info_all['mechanism']
-                    follow_info_simple['citedtimes'] = follow_info_all['citedtimes']
-                    follow_info_simple['resultsnumber'] = follow_info_all['resultsnumber']
-                    follow_info_simple['field'] = follow_info_all['field']
-                    find_user['follow_list'].append(follow_info_simple)
-                # 设置返回值
-                res['state'] = 'success'
-                res['msg'] = find_user
+                self.get_user_data(find_user, res)
             # 用户不存在
             else:
                 res['reason'] = '用户不存在'
