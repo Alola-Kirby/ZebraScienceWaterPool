@@ -450,7 +450,8 @@ class DbOperate:
 
     '''
     15
-    修改密码，不知是否需要对新的密码进行判断，比如判断其长度以及是否太简单
+    修改密码
+    测试成功
     '''
 
     def change_pwd(self, email, old_password, new_password):
@@ -471,13 +472,38 @@ class DbOperate:
     16
     增加科技资源
     '''
-
     def add_resource(self, professor_id, paper_url):
-        pass
+        res = {'state': 'success', 'reason': '增加科技资源，给管理员发送成功'}
+        scholar = self.getCol('scmessage').find_one({'scid': professor_id})
+        msg_content = scholar['name']+'请求增加科技资源,资源url：'+ paper_url
+        try :
+            self.send_sys_message_to_admin(msg_content)
+        except :
+            res = {'state': 'fail', 'reason': '增加科技资源，给管理员发送消息失败'}
+        finally:
+            return res
 
     '''
+    删除科技资源
     17
     '''
+    def rm_resource(self, professor_id, paper_id):
+        res = {'state': 'success', 'reason': '删除科技资源，给管理员发送成功'}
+        scholar = self.getCol('scmessage').find_one({'scid': professor_id})
+        msg_content = scholar['name'] + '请求删除科技资源,资源ID：' + paper_id
+        try :
+            self.send_sys_message_to_admin(msg_content)
+        except :
+            res = {'state': 'fail', 'reason': '删除科技资源，给管理员发送消息失败'}
+        finally:
+            return res
+
+    '''
+    18
+    管理员处理修改科技资源申请
+    '''
+    def deal_request(self,apply_id,deal):
+        pass
 
 
     #######################################################接口 19-26#######################################################
