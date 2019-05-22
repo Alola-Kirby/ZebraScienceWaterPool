@@ -4,6 +4,7 @@ import Config
 import random
 import time
 from pymongo import MongoClient
+from bson.objectid import ObjectId
 
 
 class DbOperate:
@@ -53,7 +54,7 @@ class DbOperate:
         find_user['star_list'].clear()
         res['reason'] = '收藏列表获取失败'
         for one_star in tmp_star:
-            star_info = self.getCol('sci_source').find_one({'paperid': one_star})
+            star_info = self.getCol('sci_source').find_one({'paper_id': one_star})
             star_info.pop('_id')
             star_info.pop('source_url')
             star_info.pop('free_download_url')
@@ -314,7 +315,7 @@ class DbOperate:
     def get_paper_details(self, paper_id):
         res = {'state': 'fail', 'reason': '网络出错或BUG出现！'}
         try:
-            find_paper = self.getCol('sci_source').find_one({'paperid': paper_id})
+            find_paper = self.getCol('sci_source').find_one({'paper_id': paper_id})
             # 成功搜索到该论文
             if find_paper:
                 find_paper.pop('_id')
@@ -358,20 +359,20 @@ class DbOperate:
     #######################################################接口 10-18#######################################################
     '''
     10
-    收藏/取消收藏资源，根据paperid是否在收藏列表中来判断是收藏还是取消收藏
+    收藏/取消收藏资源，根据paper_id是否在收藏列表中来判断是收藏还是取消收藏
     测试成功！
     '''
 
-    def collect(self, email, paperid):
+    def collect(self, email, paper_id):
         res = {'state': 'success', 'reason': '用户已收藏该资源'}
         try:
             user = self.getCol('user').find_one({'email': email})
             star_list = user['star_list']
-            if paperid not in user['star_list']:
+            if paper_id not in user['star_list']:
                 res = {'state': 'success', 'reason': '用户尚未收藏该资源'}
-                star_list.append(paperid)
+                star_list.append(paper_id)
             else:
-                star_list.remove(paperid)
+                star_list.remove(paper_id)
             user['star_list'] = star_list
             self.getCol('user').update_one({'email': user['email']}, {'$set': user})
         except:
@@ -493,6 +494,7 @@ class DbOperate:
     删除科技资源
     17
     '''
+<<<<<<< HEAD
     def rm_resource(self, professor_id, paper_id):
         res = {'state': 'success', 'reason': '删除科技资源，给管理员发送成功'}
         scholar = self.getCol('scmessage').find_one({'scid': professor_id})
@@ -511,6 +513,9 @@ class DbOperate:
     def deal_request(self,apply_id,deal):
         pass
 
+=======
+    
+>>>>>>> 7ff00183dbde525919c71d2147259981ac6f0c4e
 
     #######################################################接口 19-26#######################################################
 
@@ -518,46 +523,44 @@ class DbOperate:
     The 19th Method
     评论资源
     '''
-    def conmment(self, id, paperid, comment_str):
+    def conmment(self, id, paper_id, comment_str):
         state = {'state': 'success', "reasons": ""}
         comment_list = self.client.Business.comment
         papers = self.client.Business.sci_source
-        query_paperid = {"paperid": paperid}
+        query_paper_id = {"paper_id": paper_id}
         user_collection = self.client.Business.user
-        if papers.find_one(query_paperid) is None:
+        if papers.find_one(query_paper_id) is None:
             state["state"] = "fail"
             state["reasons"] = "paper not found"
         elif user_collection.find_one({"email": id}) is None:
             state["state"] = "fail"
             state["reasons"] = "user not found"
         else:
-            this_comment = {"comment_id": 2333333, "email": id, "paperid": paperid, "date": time.time(),
+            this_comment = {"email": id, "paper_id": paper_id, "date": time.time(),
                             "comment_str": comment_str, "replies": []}
             comment_list.insert_one(this_comment)
-        return (state)
+        return state
 
     '''
     The 20th Method
     回复评论
     '''
-    def reply_conmment(self, commentid, userid, comment_str):
+    def reply_conmment(self, comment_id, userid, comment_str):
         state = {'state': 'success', "reasons": ""}
         comment_list = self.client.Business.comment
         user_collection = self.client.Business.user
-        if comment_list.find_one({"comment_id": commentid}) is None:
+        new_comment = comment_list.find_one({"_id": ObjectId(comment_id)})
+        if new_comment is None:
             state["state"] = "fail"
             state["reasons"] = "comment not found"
         elif user_collection.find_one({"email": userid}) is None:
             state["state"] = "fail"
             state["reasons"] = "user not found"
         else:
-            new_comment = comment_list.find_one({"comment_id": commentid})
             new_comment["replies"].append({"email": userid, "date": time.time(),
                                            "comment_str": comment_str})
-            comment_list.update({"comment_id": commentid}, new_comment)
-        # if state["state"] == "success":
-        #    0 # 待修改 发送消息部分
-        return (state)
+            comment_list.update({"_id": ObjectId(comment_id)}, new_comment)
+        return state
 
     '''
     The 21st Method
@@ -566,18 +569,18 @@ class DbOperate:
     def delete_conmment(self, comment_id):
         state = {'state': 'success', "reasons": ""}
         comment_list = self.client.Business.comment
-        if comment_list.find_one({"comment_id": comment_id}) is None:
+        if comment_list.find_one({"_id": ObjectId(comment_id)}) is None:
             state["state"] = "fail"
             state["reasons"] = "comment not found"
         else:
-            comment_list.remove({"comment_id": comment_id})
-        return (state)
+            comment_list.remove({"comment_id": ObjectId(comment_id)})
+        return state
 
     '''
     The 22nd Method
     发送系统通知（除管理员）
     '''
-    def send_sys_message_to_all(self, content):
+    def send_sys_message_to_all(self, content, msg_type):
         state = {'state': 'success', "reasons": ""}
         msg = self.client.Business.message
         user_list = self.client.Business.user.find({"user_type": {"$ne": "ADMIN"}},
@@ -587,8 +590,8 @@ class DbOperate:
             state["state"] = "fail"
         else:
             for user in user_list:
-                msg.insert_one({"content": content, "email": user["email"], "date": time.time()})
-        return (state)
+                msg.insert_one({"content": content, "email": user["email"], "date": time.time(), "type": msg_type})
+        return state
 
     '''
     The 23th Method
@@ -596,11 +599,11 @@ class DbOperate:
     '''
     def get_sys_message(self, user_id):
         state = {'state': 'success', "reasons": "", "messages": []}
-        msg = self.client.Business.message
-        msg_list = msg.find({"email": user_id}, {"email": 0, "content": 1})
+        message = self.client.Business.message
+        msg_list = message.find({"email": user_id}, {"email": 0, "content": 1})
         for msg in msg_list:
-            state["messages"].append({"content": msg["content"], "date": msg["date"]})
-        return (state)
+            state["messages"].append({"content": msg["content"], "date": msg["date"], "type": msg["type"]})
+        return state
 
     '''
     The 24th Method
@@ -618,7 +621,7 @@ class DbOperate:
                 state["state"] = "fail"
             else:
                 applies.insert_one({{"name": name, "ID": ID, "field": field, "email": email, "text": text, "date": time.time()}})
-        return (state)
+        return state
 
     '''
     The 25th Method
@@ -632,7 +635,7 @@ class DbOperate:
         else:
             for expert in expert_list:
                 state["user_ids"].append(expert["email"])
-        return (state)
+        return state
 
     '''
     The 26th Method
@@ -641,13 +644,13 @@ class DbOperate:
     def deal_certification(self, apply_id, deal):
         state = {'state': 'success', "reasons": "", "names": []}
         # ???
-        return (state)
+        return state
 
     '''
     The 27th Method
     发送系统通知（仅管理员）
     '''
-    def send_sys_message_to_admin(self, content):
+    def send_sys_message_to_admin(self, content, msg_type):
         state = {'state': 'success', "reasons": ""}
         msg = self.client.Business.message
         user_list = self.client.Business.user.find({"user_type": "ADMIN"},
@@ -657,14 +660,14 @@ class DbOperate:
             state["state"] = "fail"
         else:
             for user in user_list:
-                msg.insert_one({"content": content, "email": user["email"], "date": time.time()})
-        return (state)
+                msg.insert_one({"content": content, "email": user["email"], "date": time.time(), "type": msg_type})
+        return state
 
     '''
     The 28th Method
     发送系统通知（单人）
     '''
-    def send_sys_message_to_one(self, content, email):
+    def send_sys_message_to_one(self, content, email, msg_type):
         state = {'state': 'success', "reasons": ""}
         msg = self.client.Business.message
         user_list = self.client.Business.user.find({"email": email},
@@ -674,6 +677,9 @@ class DbOperate:
             state["state"] = "fail"
         else:
             for user in user_list:
-                msg.insert_one({"content": content, "email": user["email"], "date": time.time()})
-        return (state)
+                msg.insert_one({"content": content, "email": user["email"], "date": time.time(), "type": msg_type})
+        return state
 
+
+if __name__ == '__main__':
+    0
