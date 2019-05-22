@@ -4,7 +4,6 @@ import Config
 import random
 import time
 from pymongo import MongoClient
-from bson.objectid import ObjectId
 
 
 class DbOperate:
@@ -40,6 +39,43 @@ class DbOperate:
             else:
                 print('url转id错误！')
                 return ''
+
+    '''
+    获取需要显示在页面上的用户数据，并修改res
+    '''
+    def get_user_data(self, find_user, res):
+        # 去掉某些不必要字段
+        find_user.pop('_id')
+        find_user.pop('password')
+        # 将star_list和follow_list中的id和简略信息一并返回
+        # 令star_list列表中存放“资源的简略信息”
+        tmp_star = copy.deepcopy(find_user['star_list'])
+        find_user['star_list'].clear()
+        res['reason'] = '收藏列表获取失败'
+        for one_star in tmp_star:
+            star_info = self.getCol('sci_source').find_one({'paperid': one_star})
+            star_info.pop('_id')
+            star_info.pop('source_url')
+            star_info.pop('free_download_url')
+            star_info.pop('abstract')
+            find_user['star_list'].append(star_info)
+        # 令follow_list列表中存放“用户的简略信息”
+        tmp_follow = copy.deepcopy(find_user['follow_list'])
+        find_user['follow_list'].clear()
+        res['reason'] = '关注列表获取失败'
+        for one_follow in tmp_follow:
+            follow_info_all = self.getCol('scmessage').find_one({'scid': one_follow})
+            follow_info_simple = {}
+            follow_info_simple['scid'] = one_follow
+            follow_info_simple['name'] = follow_info_all['name']
+            follow_info_simple['mechanism'] = follow_info_all['mechanism']
+            follow_info_simple['citedtimes'] = follow_info_all['citedtimes']
+            follow_info_simple['resultsnumber'] = follow_info_all['resultsnumber']
+            follow_info_simple['field'] = follow_info_all['field']
+            find_user['follow_list'].append(follow_info_simple)
+        # 设置返回值
+        res['state'] = 'success'
+        res['msg'] = find_user
 
     '''
     1. 邮箱查重 验证码生成并存入数据库 √
@@ -119,7 +155,7 @@ class DbOperate:
             return res
 
     '''
-    3. 比对密码 √
+    3. 比对密码并返回用户信息 √
     '''
 
     def compare_password(self, password, email):
@@ -130,7 +166,7 @@ class DbOperate:
             if find_user:
                 real_psw = find_user['password']
                 if real_psw == password:
-                    res['state'] = 'success'
+                    self.get_user_data(find_user, res)
                 else:
                     res['reason'] = '密码错误'
             # 用户不存在
@@ -214,38 +250,7 @@ class DbOperate:
             find_user = self.getCol('user').find_one({'email': email})
             # 搜索到指定用户
             if find_user:
-                # 去掉某些不必要字段
-                find_user.pop('_id')
-                find_user.pop('password')
-                # 将star_list和follow_list中的id和简略信息一并返回
-                # 令star_list列表中存放“资源的简略信息”
-                tmp_star = copy.deepcopy(find_user['star_list'])
-                find_user['star_list'].clear()
-                res['reason'] = '收藏列表获取失败'
-                for one_star in tmp_star:
-                    star_info = self.getCol('sci_source').find_one({'paperid': one_star})
-                    star_info.pop('_id')
-                    star_info.pop('source_url')
-                    star_info.pop('free_download_url')
-                    star_info.pop('abstract')
-                    find_user['star_list'].append(star_info)
-                # 令follow_list列表中存放“用户的简略信息”
-                tmp_follow = copy.deepcopy(find_user['follow_list'])
-                find_user['follow_list'].clear()
-                res['reason'] = '关注列表获取失败'
-                for one_follow in tmp_follow:
-                    follow_info_all = self.getCol('scmessage').find_one({'scid': one_follow})
-                    follow_info_simple = {}
-                    follow_info_simple['scid'] = one_follow
-                    follow_info_simple['name'] = follow_info_all['name']
-                    follow_info_simple['mechanism'] = follow_info_all['mechanism']
-                    follow_info_simple['citedtimes'] = follow_info_all['citedtimes']
-                    follow_info_simple['resultsnumber'] = follow_info_all['resultsnumber']
-                    follow_info_simple['field'] = follow_info_all['field']
-                    find_user['follow_list'].append(follow_info_simple)
-                # 设置返回值
-                res['state'] = 'success'
-                res['msg'] = find_user
+                self.get_user_data(find_user, res)
             # 用户不存在
             else:
                 res['reason'] = '用户不存在'
@@ -500,7 +505,7 @@ class DbOperate:
             state["state"] = "fail"
             state["reasons"] = "user not found"
         else:
-            this_comment = {"email": id, "paperid": paperid, "date": time.time(),
+            this_comment = {"comment_id": 2333333, "email": id, "paperid": paperid, "date": time.time(),
                             "comment_str": comment_str, "replies": []}
             comment_list.insert_one(this_comment)
         return (state)
@@ -509,21 +514,23 @@ class DbOperate:
     The 20th Method
     回复评论
     '''
-    def reply_conmment(self, comment_id, userid, comment_str):
+    def reply_conmment(self, commentid, userid, comment_str):
         state = {'state': 'success', "reasons": ""}
         comment_list = self.client.Business.comment
         user_collection = self.client.Business.user
-        new_comment = comment_list.find_one({"_id": ObjectId(comment_id)})
-        if new_comment is None:
+        if comment_list.find_one({"comment_id": commentid}) is None:
             state["state"] = "fail"
             state["reasons"] = "comment not found"
         elif user_collection.find_one({"email": userid}) is None:
             state["state"] = "fail"
             state["reasons"] = "user not found"
         else:
+            new_comment = comment_list.find_one({"comment_id": commentid})
             new_comment["replies"].append({"email": userid, "date": time.time(),
                                            "comment_str": comment_str})
-            comment_list.update({"_id": ObjectId(comment_id)}, new_comment)
+            comment_list.update({"comment_id": commentid}, new_comment)
+        # if state["state"] == "success":
+        #    0 # 待修改 发送消息部分
         return (state)
 
     '''
@@ -533,18 +540,18 @@ class DbOperate:
     def delete_conmment(self, comment_id):
         state = {'state': 'success', "reasons": ""}
         comment_list = self.client.Business.comment
-        if comment_list.find_one({"_id": ObjectId(comment_id)}) is None:
+        if comment_list.find_one({"comment_id": comment_id}) is None:
             state["state"] = "fail"
             state["reasons"] = "comment not found"
         else:
-            comment_list.remove({"comment_id": ObjectId(comment_id)})
+            comment_list.remove({"comment_id": comment_id})
         return (state)
 
     '''
     The 22nd Method
     发送系统通知（除管理员）
     '''
-    def send_sys_message_to_all(self, content, msg_type):
+    def send_sys_message_to_all(self, content):
         state = {'state': 'success', "reasons": ""}
         msg = self.client.Business.message
         user_list = self.client.Business.user.find({"user_type": {"$ne": "ADMIN"}},
@@ -554,7 +561,7 @@ class DbOperate:
             state["state"] = "fail"
         else:
             for user in user_list:
-                msg.insert_one({"content": content, "email": user["email"], "date": time.time(), "type": msg_type})
+                msg.insert_one({"content": content, "email": user["email"], "date": time.time()})
         return (state)
 
     '''
@@ -563,10 +570,10 @@ class DbOperate:
     '''
     def get_sys_message(self, user_id):
         state = {'state': 'success', "reasons": "", "messages": []}
-        message = self.client.Business.message
-        msg_list = message.find({"email": user_id}, {"email": 0, "content": 1})
+        msg = self.client.Business.message
+        msg_list = msg.find({"email": user_id}, {"email": 0, "content": 1})
         for msg in msg_list:
-            state["messages"].append({"content": msg["content"], "date": msg["date"], "type": msg["type"]})
+            state["messages"].append({"content": msg["content"], "date": msg["date"]})
         return (state)
 
     '''
@@ -614,7 +621,7 @@ class DbOperate:
     The 27th Method
     发送系统通知（仅管理员）
     '''
-    def send_sys_message_to_admin(self, content, msg_type):
+    def send_sys_message_to_admin(self, content):
         state = {'state': 'success', "reasons": ""}
         msg = self.client.Business.message
         user_list = self.client.Business.user.find({"user_type": "ADMIN"},
@@ -624,14 +631,14 @@ class DbOperate:
             state["state"] = "fail"
         else:
             for user in user_list:
-                msg.insert_one({"content": content, "email": user["email"], "date": time.time(), "type": msg_type})
+                msg.insert_one({"content": content, "email": user["email"], "date": time.time()})
         return (state)
 
     '''
     The 28th Method
     发送系统通知（单人）
     '''
-    def send_sys_message_to_one(self, content, email, msg_type):
+    def send_sys_message_to_one(self, content, email):
         state = {'state': 'success', "reasons": ""}
         msg = self.client.Business.message
         user_list = self.client.Business.user.find({"email": email},
@@ -641,5 +648,6 @@ class DbOperate:
             state["state"] = "fail"
         else:
             for user in user_list:
-                msg.insert_one({"content": content, "email": user["email"], "date": time.time(), "type": msg_type})
+                msg.insert_one({"content": content, "email": user["email"], "date": time.time()})
         return (state)
+
