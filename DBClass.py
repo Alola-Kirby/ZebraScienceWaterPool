@@ -580,7 +580,7 @@ class DbOperate:
     The 22nd Method
     发送系统通知（除管理员）
     '''
-    def send_sys_message_to_all(self, content, msg_type):
+    def send_sys_message_to_all(self, msg_type, content):
         state = {'state': 'success', "reasons": ""}
         msg = self.client.Business.message
         user_list = self.client.Business.user.find({"user_type": {"$ne": "ADMIN"}},
@@ -650,7 +650,7 @@ class DbOperate:
     The 27th Method
     发送系统通知（仅管理员）
     '''
-    def send_sys_message_to_admin(self, content, msg_type):
+    def send_sys_message_to_admin(self, msg_type, content):
         state = {'state': 'success', "reasons": ""}
         msg = self.client.Business.message
         user_list = self.client.Business.user.find({"user_type": "ADMIN"},
@@ -667,7 +667,7 @@ class DbOperate:
     The 28th Method
     发送系统通知（单人）
     '''
-    def send_sys_message_to_one(self, content, email, msg_type):
+    def send_sys_message_to_one(self, msg_type, content, email):
         state = {'state': 'success', "reasons": ""}
         msg = self.client.Business.message
         user_list = self.client.Business.user.find({"email": email},
