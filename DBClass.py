@@ -523,7 +523,7 @@ class DbOperate:
     The 19th Method
     评论资源
     '''
-    def comment(self, email, paper_id, comment_str):
+    def comment(self, email, paper_id, content):
         state = {'state': 'success', "reasons": ""}
         comment_list = self.client.Business.comment
         papers = self.client.Business.sci_source
@@ -537,7 +537,7 @@ class DbOperate:
             state["reasons"] = "user not found"
         else:
             this_comment = {"email": email, "paper_id": paper_id, "date": time.time(),
-                            "comment_str": comment_str, "replies": []}
+                            "content": content, "replies": []}
             comment_list.insert_one(this_comment)
         return state
 
@@ -545,7 +545,7 @@ class DbOperate:
     The 20th Method
     回复评论
     '''
-    def reply_comment(self, comment_id, userid, comment_str):
+    def reply_comment(self, comment_id, email, content):
         state = {'state': 'success', "reasons": ""}
         comment_list = self.client.Business.comment
         user_collection = self.client.Business.user
@@ -553,12 +553,12 @@ class DbOperate:
         if new_comment is None:
             state["state"] = "fail"
             state["reasons"] = "comment not found"
-        elif user_collection.find_one({"email": userid}) is None:
+        elif user_collection.find_one({"email": email}) is None:
             state["state"] = "fail"
             state["reasons"] = "user not found"
         else:
-            new_comment["replies"].append({"email": userid, "date": time.time(),
-                                           "comment_str": comment_str})
+            new_comment["replies"].append({"email": email, "date": time.time(),
+                                           "content": content})
             comment_list.update({"_id": ObjectId(comment_id)}, new_comment)
         return state
 
