@@ -24,7 +24,7 @@ class zebrasearch():
         collection = db[collection]
         count = 0
         actions = []
-        for item in collection.find().skip(1100):
+        for item in collection.find():
             item = dict(item)
             item.pop('_id')
             action = {
@@ -33,8 +33,10 @@ class zebrasearch():
                 "_source": item
             }
             actions.append(action)
+            count += 1
+            print('处理第'+str(count)+'篇论文')
             try:
-                if len(actions) == 10:
+                if len(actions) == 30:
                     helpers.bulk(self.es, actions)
                     del actions[0:len(action)]
             except:
@@ -55,6 +57,6 @@ if __name__ == '__main__':
     zebrasearch.connect_es(u'139.199.96.196', 9200)
     zebrasearch.connect_mongo('139.199.96.196', 27017)
     # search.mongo2es('Business', 'user', 'business', 'user')
-    zebrasearch.cleartypes('busscisource', 'scisource')
+    print(zebrasearch.es.search(index='business', doc_type='scisource'))
+    # zebrasearch.cleartypes('busscisource', 'scisource')
     zebrasearch.mongo2es('Business', 'sci_source', 'busscisource', 'scisource')
-    # print(zebrasearch.es.search(index='business', doc_type='scisource'))
