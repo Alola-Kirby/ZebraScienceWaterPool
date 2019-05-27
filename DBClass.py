@@ -233,10 +233,16 @@ class DbOperate:
                 res['reason'] = '专家ID提取失败'
                 for one_cop in tmp:
                     t_scholarID = self.scurl2id(one_cop['url'])
+                    # scid提取失败，手动抛出异常
                     if t_scholarID == '':
                         gg = 1 / 0
                     one_cop.pop('url')
                     one_cop['scid'] = t_scholarID
+                # 由于有部分专家paper字段中会出现_id，这里将其同一赋值为1（不太好的解决方法）
+                tmp2 = find_exp['paper']
+                res['reason'] = '_id修改失败'
+                for one_paper in tmp2:
+                    one_paper['_id'] = 1
                 # 设置返回值
                 res['state'] = 'success'
                 res['msg'] = find_exp
