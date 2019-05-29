@@ -743,3 +743,32 @@ class DbOperate:
             for user in user_list:
                 msg.insert_one({"content": content, "email": user["email"], "date": time.time(), "type": msg_type})
         return state
+
+    '''
+    The 29th Method
+    获取评论详情
+    '''
+    def get_comment(self, paper_id):
+        res = {'state': 'fail', 'reason': '网络出错或BUG出现！'}
+        try:
+            find_com = self.getCol('comment').find({'paper_id': paper_id})
+            test = self.getCol('comment').find_one({'paper_id': paper_id})
+            # 成功搜索到相关评论
+            if test:
+                comment_list = []
+                # 对每个评论，去掉不必要字段，把email替换为用户名
+                for one_com in find_com:
+                    one_com.pop('_id')
+                    one_com.pop('paper_id')
+                    find_user = self.getCol('user').find_one({'email': one_com['email']})
+                    one_com['username'] = find_user['username']
+                    one_com.pop('email')
+                    comment_list.append(one_com)
+                res['state'] = 'success'
+                res['msg'] = comment_list
+            # 未搜索到评论
+            else:
+                res['reason'] = '未搜索到相关评论'
+            return res
+        except:
+            return res
