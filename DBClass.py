@@ -760,9 +760,14 @@ class DbOperate:
                 for one_com in find_com:
                     one_com.pop('_id')
                     one_com.pop('paper_id')
+                    # 将评论者信息（id 用户名）封装到一个字典里
+                    from_user_info = {}
                     find_user = self.getCol('user').find_one({'email': one_com['email']})
-                    one_com['username'] = find_user['username']
                     one_com.pop('email')
+                    from_user_info['userid'] = find_user['email']
+                    from_user_info['username'] = find_user['username']
+                    one_com['from'] = from_user_info
+                    # 这里可能需要对回复列表进行内容的修改
                     comment_list.append(one_com)
                 res['state'] = 'success'
                 res['msg'] = comment_list
