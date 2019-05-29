@@ -293,14 +293,14 @@ class DbOperate:
             return res
 
     '''
-    8-1. 查询论文（速度比较慢，返回的基本信息有哪些待确认） √
+    8-1. 查询论文 √
     '''
 
-    def search_paper(self, title):
+    def search_paper(self, title, page_num):
         res = {'state': 'fail', 'reason': '网络出错或BUG出现！'}
         try:
             # 根据标题模糊查询
-            papers = self.getCol('sci_source').find({'name': {'$regex': title}})
+            papers = self.getCol('sci_source').find({'name': {'$regex': title}}).skip((page_num - 1) * Config.PAPER_NUM).limit(Config.PAPER_NUM)
             test = self.getCol('sci_source').find_one({'name': {'$regex': title}})
             # 根据标题模糊匹配查找到相关论文列表
             if test:
@@ -343,14 +343,14 @@ class DbOperate:
             return res
 
     '''
-    9. 查询机构（是否需要返回简介有待确认） √
+    9. 查询机构 √
     '''
 
-    def search_organization(self, organization_name):
+    def search_organization(self, organization_name, page_num):
         res = {'state': 'fail', 'reason': '网络出错或BUG出现！'}
         try:
             # 根据名称模糊查询
-            orgs = self.getCol('mechanism').find({'mechanism': {'$regex': organization_name}})
+            orgs = self.getCol('mechanism').find({'mechanism': {'$regex': organization_name}}).skip((page_num - 1) * Config.ORG_NUM).limit(Config.ORG_NUM)
             test = self.getCol('mechanism').find_one({'mechanism': {'$regex': organization_name}})
             # 根据名称模糊匹配查找到相关机构列表
             if test:

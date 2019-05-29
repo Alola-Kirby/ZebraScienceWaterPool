@@ -2,12 +2,17 @@ from elasticsearch import Elasticsearch
 from elasticsearch import helpers
 from pymongo import MongoClient
 
+ONCE = 100          # 调用mongo2es中find的数据条数
+SKIPNUM = 0         # 第几次调用mongo2es函数
+ERROR_ELE = []      # 未插入es的数据序号列表
+INSERT_NUM = 1      # 一次批量插入的条数
+
 class zebrasearch():
     """
     连接Elaticsearch
     """
     def connect_es(self, host, port):
-        self.es = Elasticsearch([{u'host':host, u'port':port}], timeout=3600)
+        self.es = Elasticsearch([{u'host': host, u'port': port}], timeout=3600)
 
     """
     连接到mongodb
@@ -24,7 +29,8 @@ class zebrasearch():
         collection = db[collection]
         count = 0
         actions = []
-        for item in collection.find():
+        tmp = collection.find().skip(SKIPNUM * ONCE).limit(ONCE)
+        for item in tmp:
             item = dict(item)
             item.pop('_id')
             action = {
@@ -34,13 +40,15 @@ class zebrasearch():
             }
             actions.append(action)
             count += 1
-            print('处理第'+str(count)+'篇论文')
+            print('第' + str(SKIPNUM * ONCE + count) + '篇论文已加入列表')
             try:
-                if len(actions) == 30:
-                    helpers.bulk(self.es, actions)
-                    del actions[0:len(action)]
+                if len(actions) == INSERT_NUM:
+                    print("截止到" + str(SKIPNUM * ONCE + count) + "篇论文正在准备插入")
+                    helpers.bulk(client=self.es, actions=actions)
+                    actions.clear()
             except:
-                pass
+                actions.clear()
+                ERROR_ELE.append(SKIPNUM * ONCE + count)
         if count > 0:
             helpers.bulk(self.es, actions)
 
@@ -56,7 +64,12 @@ if __name__ == '__main__':
     zebrasearch = zebrasearch()
     zebrasearch.connect_es(u'139.199.96.196', 9200)
     zebrasearch.connect_mongo('139.199.96.196', 27017)
-    # search.mongo2es('Business', 'user', 'business', 'user')
-    print(zebrasearch.es.search(index='business', doc_type='scisource'))
+    # zebrasearch.mongo2es('Business', 'mechanism', 'business', 'user')
+    # print(zebrasearch.es.search(index='business', doc_type='scisource'))
     # zebrasearch.cleartypes('busscisource', 'scisource')
-    zebrasearch.mongo2es('Business', 'sci_source', 'busscisource', 'scisource')
+
+    for i in range(0, 30):
+        zebrasearch.mongo2es('Business', 'mechanism', 'organization_index', '_doc')
+        SKIPNUM += 1
+
+    print(ERROR_ELE)
