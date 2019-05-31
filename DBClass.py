@@ -657,7 +657,7 @@ class DbOperate:
             state["state"] = "fail"
             state["reasons"] = "comment not found"
         else:
-            comment_list.remove({"comment_id": ObjectId(comment_id)})
+            comment_list.remove({"_id": ObjectId(comment_id)})
         return state
 
     '''
@@ -709,10 +709,10 @@ class DbOperate:
                 state["state"] = "fail"
                 state["state"] = "您已提交申请，请勿重复提交"
             else:
-                result = applies.insert_one({{"name": name, "ID": id_, "field": field, "email": email, "text": text,
-                                              "date": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time())),
-                                              "scid": scid, "state": "waiting"}})
-                state["_id"] = result.inserted_id
+                result = applies.insert_one({"name": name, "ID": id_, "field": field, "email": email, "text": text,
+                                             "date": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time())),
+                                             "scid": scid, "state": "waiting"})
+                state["_id"] = str(result.inserted_id)
         return state
 
     '''
@@ -834,3 +834,47 @@ class DbOperate:
         except:
             return res
 
+    '''
+    30-1. 删除一条消息 √
+    '''
+    def delete_message_onepiece(self, user_id, message_id):
+        state = {'state': 'success', "reasons": ""}
+        msg_list = self.client.Business.message
+        if msg_list.find_one({"_id": ObjectId(message_id)}) is None:
+            state["state"] = "fail"
+            state["reasons"] = "message not found"
+        else:
+            msg_list.remove({"_id": ObjectId(message_id)})
+        return state
+
+    '''
+    30-2. 删除同种消息 √
+    '''
+    def delete_message_onetype(self, user_id, message_type):
+        state = {'state': 'success', "reasons": ""}
+        msg_list = self.client.Business.message
+        if msg_list.find_one({"email": user_id, "type": message_type}) is None:
+            state["state"] = "fail"
+            state["reasons"] = "message not found"
+        else:
+            msg_list.remove({"email": user_id, "type": message_type})
+        return state
+
+    '''
+    31. 获取认证信息
+    '''
+    def get_apply(self, apply_id):
+        res = {'state': 'fail', 'reason': '网络出错或BUG出现！'}
+        try:
+            find_mat = self.getCol('application').find_one({'_id': ObjectId(apply_id)})
+            # 成功搜索到认证材料
+            if find_mat:
+                find_mat.pop('_id')
+                res['state'] = 'success'
+                res['msg'] = find_mat
+            # 未搜索到认证材料
+            else:
+                res['reason'] = '未搜索到认证材料'
+            return res
+        except:
+            return res
