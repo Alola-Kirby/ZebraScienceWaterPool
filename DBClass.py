@@ -688,7 +688,8 @@ class DbOperate:
         message = self.client.Business.message
         msg_list = message.find({"email": email}, {"email": 0, "content": 1})
         for msg in msg_list:
-            state["messages"].append({"content": msg["content"], "date": msg["date"], "type": msg["type"]})
+            state["messages"].append({"content": msg["content"], "date": msg["date"],
+                                      "type": msg["type"], "msg_id": str(msg["_id"])})
         return state
 
     '''
@@ -746,7 +747,9 @@ class DbOperate:
             if deal:
                 apply["state"] = "accepted"
                 result = self.client.Business.user.update_many({"email": apply["email"], "user_type": "USER"},
-                                                               {"user_type": "EXPERT"})
+                                                               {"user_type": "EXPERT",
+                                                                "username": apply["name"],
+                                                                "scid": apply["scid"]})
                 if result.matched_count == 0:
                     state["state"] = "fail"
                     state["reason"] = "but nothing changed"
