@@ -763,7 +763,7 @@ class DbOperate:
     The 27th Method
     发送系统通知（仅管理员）
     '''
-    def send_sys_message_to_admin(self, msg_type, content):
+    def send_sys_message_to_admin(self, msg_type, content, apply_id=""):
         state = {'state': 'success', "reasons": ""}
         msg = self.client.Business.message
         user_list = self.client.Business.user.find({"user_type": "ADMIN"},
@@ -775,7 +775,7 @@ class DbOperate:
             for user in user_list:
                 msg.insert_one({"content": content, "email": user["email"],
                                 "date": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time())),
-                                "type": msg_type})
+                                "type": msg_type, "apply_id": apply_id})
         return state
 
     '''
@@ -833,3 +833,4 @@ class DbOperate:
             return res
         except:
             return res
+
