@@ -662,9 +662,11 @@ class DbOperate:
         state = {'state': 'success', "reasons": "", "messages": []}
         message = self.client.Business.message
         msg_list = message.find({"email": email}, {"email": 0, "content": 1})
-        for msg in msg_list:
-            state["messages"].append({"content": msg["content"], "date": msg["date"],
-                                      "type": msg["type"], "msg_id": str(msg["_id"])})
+        if msg_list.count() > 0:
+            for msg in msg_list:
+                print("fuck")
+                state["messages"].append({"content": msg["content"], "date": msg["date"],
+                                          "type": msg["type"], "msg_id": str(msg["_id"])})
         return state
 
     '''
