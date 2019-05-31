@@ -2,10 +2,13 @@ from elasticsearch import Elasticsearch
 from elasticsearch import helpers
 from pymongo import MongoClient
 
-ONCE = 100          # 调用mongo2es中find的数据条数
-SKIPNUM = 0         # 第几次调用mongo2es函数
-ERROR_ELE = []      # 未插入es的数据序号列表
-INSERT_NUM = 1      # 一次批量插入的条数
+ONCE = 1000           # 调用mongo2es中find的数据条数
+INSERT_NUM = 100      # 一次批量插入的条数
+START = 676           # 开始下标
+ERROR_ELE = []        # 未插入es的数据序号列表
+
+END = START + 1       # 终止下标
+SKIPNUM = START       # 第几次调用mongo2es
 
 class zebrasearch():
     """
@@ -28,11 +31,16 @@ class zebrasearch():
         db = self.client[db]
         collection = db[collection]
         count = 0
+        inserted = False
         actions = []
         tmp = collection.find().skip(SKIPNUM * ONCE).limit(ONCE)
         for item in tmp:
+            inserted = False
             item = dict(item)
             item.pop('_id')
+            # for p in item['paper']:
+            #     if '_id' in p.keys():
+            #         p.pop('_id')
             action = {
                 "_index": index,
                 "_type": types,
@@ -45,12 +53,13 @@ class zebrasearch():
                 if len(actions) == INSERT_NUM:
                     print("截止到" + str(SKIPNUM * ONCE + count) + "篇论文正在准备插入")
                     helpers.bulk(client=self.es, actions=actions)
+                    inserted = True
                     actions.clear()
             except:
                 actions.clear()
                 ERROR_ELE.append(SKIPNUM * ONCE + count)
-        if count > 0:
-            helpers.bulk(self.es, actions)
+        if not inserted:
+            helpers.bulk(client=self.es, actions=actions)
 
     """
     将es的index索引的types清空
@@ -68,8 +77,11 @@ if __name__ == '__main__':
     # print(zebrasearch.es.search(index='business', doc_type='scisource'))
     # zebrasearch.cleartypes('busscisource', 'scisource')
 
-    for i in range(0, 30):
-        zebrasearch.mongo2es('Business', 'mechanism', 'organization_index', '_doc')
+    # 专家每次插10条，每次挑100条
+    # 论文每次插100条，每次挑1000条
+    for i in range(START, END):
+        print("第" + str(i) + "轮")
+        zebrasearch.mongo2es('Business', 'paper', 'paper_index', '_doc')
         SKIPNUM += 1
 
     print(ERROR_ELE)
