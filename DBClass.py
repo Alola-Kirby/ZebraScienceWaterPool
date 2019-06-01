@@ -3,6 +3,7 @@ import re
 import Config
 import random
 import time
+import json
 from pymongo import MongoClient
 from bson.objectid import ObjectId
 from elasticsearch import Elasticsearch
@@ -338,30 +339,162 @@ class DbOperate:
     '''
     8-3. 论文高级检索
     '''
-    def search_paper_nb(self, title, page_num, keyw_and, keyw_or, keyw_not):
+    def search_paper_nb(self, title, page_num, keyw_and, keyw_or, keyw_not, author, journal, start_time, end_time ):
         res = {'state': 'fail', 'reason': '网络出错或BUG出现！'}
         try:
             # 根据条件进行高级查询
-            temp_papers = self.getCol('sci_source').find({'name': {'$regex': title}})
-            papers = temp_papers.skip((page_num - 1) * Config.PAPER_NUM).limit(Config.PAPER_NUM)
-            test = self.getCol('sci_source').find_one({'name': {'$regex': title}})
-            # 查找到相关论文列表
-            if test:
-                papers_list = []
-                # 根据所查到的论文列表papers，逐个论文提取其中基本信息（去除不必要字段），并放入结果papers_list中
-                for one_paper in papers:
-                    one_paper.pop('_id')
-                    one_paper.pop('source_url')
-                    one_paper.pop('free_download_url')
-                    # 之后在这里可能需要对过长的摘要做一些内容上的删减
-                    papers_list.append(one_paper)
-                res['msg'] = papers_list
-                res['count'] = temp_papers.count()
-                res['state'] = 'success'
-            # 未查找到相关论文
-            else:
-                res['reason'] = '未查找到相关论文'
-            return res
+            must_match = ''
+            for key in keyw_and:
+                must_match += key+' '
+            must_not_match = ''
+            for key in keyw_not:
+                must_not_match += key+' '
+            should_match = ''
+            for key in keyw_or:
+                should_match += key+' '
+            try:
+                start_time = int(start_time)
+            except:
+                start_time = 0
+            try:
+                end_time = int(end_time)
+            except:
+                end_time = 2020
+            filter_query = {
+                "range": {
+                    "year": {
+                        "gte": start_time,
+                        "lte": end_time
+                    }
+                }
+            }
+            must_query = [
+                {
+                    "match": {
+                        "name": title
+                    }
+                },
+            ]
+            if author != '':
+                must_query.append(
+                    {"match": {"author": author}}
+                )
+            if journal != '':
+                must_query.append(
+                    {"match": {"source_journal.name": journal}}
+                )
+            must_not_query = {
+                "multi_match":{
+                    "query": must_not_match,
+                    "fields": [
+                        "abstract",
+                        "name",
+                        "author",
+                        "keyword"
+                    ],
+                    "operator": "and"
+                }
+            }
+            should_query = [
+                {
+                    "multi_match":{
+                        "query": should_match,
+                        "fields": [
+                            "abstract",
+                            "name",
+                            "author",
+                            "keyword"
+                        ]
+                    }
+                },
+                {
+                    "match": {
+                        "name":{
+                            "query": must_match,
+                            "operator": "and"
+                        }
+                    }
+                },
+                {
+                    "match": {
+                        "author": {
+                            "query": must_match,
+                            "operator": "and"
+                        }
+                    }
+                },
+                {
+                    "match": {
+                        "abstract":{
+                            "query": must_match,
+                            "operator": "and"
+                        }
+                    }
+                },
+                {
+                    "match": {
+                        "keyword": {
+                            "query": must_match,
+                            "operator": "and"
+                        }
+                    }
+                }
+            ]
+            body = {
+                "query": {
+                    "bool":{
+                       "filter": filter_query,
+                        "must": must_query,
+                        "must_not": must_not_query,
+                        "should": should_query
+                    }
+                },
+                "highlight": {
+                    "fields": {
+                        "abstract": {},
+                        "name":{},
+                        "keyword":{},
+                        "author":{},
+                        "source_journal.name":{},
+                        "year":{}
+                    }
+                }
+            }
+            body = json.dumps(body, ensure_ascii=False)
+            print(body)
+            temp_papers = self.es.search(index='paper_index',)
+            print(temp_papers)
+            for paper in temp_papers['hits']['hits']:
+                print(paper)
+            # print(temp_papers['hits']['hits'])
+
+            count = len(temp_papers["hits"]["hits"])
+            print(str(count)+'*'*10)
+            papers = []
+            for temp in temp_papers["hits"]["hits"]:
+                papers.append(temp["_source"])
+            # print(papers)
+
+            # temp_papers = self.getCol('sci_source').find({'name': {'$regex': title}})
+            # papers = temp_papers.skip((page_num - 1) * Config.PAPER_NUM).limit(Config.PAPER_NUM)
+            # test = self.getCol('sci_source').find_one({'name': {'$regex': title}})
+            # # 查找到相关论文列表
+            # if test:
+            #     papers_list = []
+            #     # 根据所查到的论文列表papers，逐个论文提取其中基本信息（去除不必要字段），并放入结果papers_list中
+            #     for one_paper in papers:
+            #         one_paper.pop('_id')
+            #         one_paper.pop('source_url')
+            #         one_paper.pop('free_download_url')
+            #         # 之后在这里可能需要对过长的摘要做一些内容上的删减
+            #         papers_list.append(one_paper)
+            #     res['msg'] = papers_list
+            #     res['count'] = temp_papers.count()
+            #     res['state'] = 'success'
+            # # 未查找到相关论文
+            # else:
+            #     res['reason'] = '未查找到相关论文'
+            # return res
         except:
             return res
 
