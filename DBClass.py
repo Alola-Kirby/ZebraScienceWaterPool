@@ -183,12 +183,16 @@ class DbOperate:
     '''
     4. 查询专家（不在意专家是否注册）（返回 专家scolarID 专家姓名 机构名称 被引次数 成果数 所属领域） √
     '''
-    def search_professor(self, professor_name):
+    def search_professor(self, professor_name, organization_name=''):
         res = {'state': 'fail', 'reason': '网络出错或BUG出现！'}
         try:
             # 不在意专家是否已注册
-            experts = self.getCol('scmessage').find({'name': professor_name})
-            test = self.getCol('scmessage').find_one({'name': professor_name})
+            if organization_name == '':
+                experts = self.getCol('scmessage').find({'name': professor_name})
+                test = self.getCol('scmessage').find_one({'name': professor_name})
+            else:
+                experts = self.getCol('scmessage').find({'name': professor_name, 'mechanism': professor_name})
+                test = self.getCol('scmessage').find_one({'name': professor_name, 'mechanism': professor_name})
             # 在专家总表中搜索到该姓名专家
             if test:
                 experts_list = []
@@ -499,7 +503,7 @@ class DbOperate:
             return res
 
     '''
-    9-1. 查询机构 √
+    9. 查询机构 √
     '''
     def search_organization(self, org_name, page_num):
         res = {'state': 'fail', 'reason': '网络出错或BUG出现！'}
@@ -520,35 +524,6 @@ class DbOperate:
                 res['count'] = temp_orgs.count()
                 res['state'] = 'success'
             # 根据名称模糊匹配未查找到相关机构
-            else:
-                res['reason'] = '未查找到相关机构'
-            return res
-        except:
-            return res
-
-    '''
-    9-2. 机构高级检索
-    '''
-    def search_organization_nb(self, org_name, page_num, keyw_and, keyw_or, keyw_not):
-        res = {'state': 'fail', 'reason': '网络出错或BUG出现！'}
-        try:
-            # 根据条件进行高级查询
-            temp_orgs = self.getCol('mechanism').find({'mechanism': {'$regex': org_name}})
-            orgs = temp_orgs.skip((page_num - 1) * Config.ORG_NUM).limit(Config.ORG_NUM)
-            test = self.getCol('mechanism').find_one({'mechanism': {'$regex': org_name}})
-            # 查找到相关机构列表
-            if test:
-                org_list = []
-                # 根据所查到的机构列表orgs，逐个机构提取其中基本信息（去除不必要字段），并放入结果org_list中
-                for one_org in orgs:
-                    one_org.pop('_id')
-                    one_org.pop('url')
-                    # 之后在这里可能需要对简介部分做一些内容上的删减
-                    org_list.append(one_org)
-                res['msg'] = org_list
-                res['count'] = temp_orgs.count()
-                res['state'] = 'success'
-            # 未查找到相关机构
             else:
                 res['reason'] = '未查找到相关机构'
             return res
@@ -790,7 +765,7 @@ class DbOperate:
             state["state"] = "fail"
             state["reasons"] = "comment not found"
         else:
-            comment_list.remove({"comment_id": ObjectId(comment_id)})
+            comment_list.remove({"_id": ObjectId(comment_id)})
         return state
 
     '''
@@ -800,9 +775,7 @@ class DbOperate:
     def send_sys_message_to_all(self, msg_type, content):
         state = {'state': 'success', "reasons": ""}
         msg = self.client.Business.message
-        user_list = self.client.Business.user.find({"user_type": {"$ne": "ADMIN"}},
-                                                   {"email": 1, "_id": 0, "user_name": 0, "password": 0,
-                                                    "user_type": 0, "star_list": 0, "follow_list": 0})
+        user_list = self.client.Business.user.find({"user_type": {"$ne": "ADMIN"}})
         if len(user_list) == 0:
             state["state"] = "fail"
         else:
@@ -819,9 +792,11 @@ class DbOperate:
     def get_sys_message(self, email):
         state = {'state': 'success', "reasons": "", "messages": []}
         message = self.client.Business.message
-        msg_list = message.find({"email": email}, {"email": 0, "content": 1})
-        for msg in msg_list:
-            state["messages"].append({"content": msg["content"], "date": msg["date"], "type": msg["type"]})
+        msg_list = message.find({"email": email})
+        if msg_list.count() > 0:
+            for msg in msg_list:
+                state["messages"].append({"content": msg["content"], "date": msg["date"],
+                                          "type": msg["type"], "msg_id": str(msg["_id"])})
         return state
 
     '''
@@ -841,10 +816,10 @@ class DbOperate:
                 state["state"] = "fail"
                 state["state"] = "您已提交申请，请勿重复提交"
             else:
-                result = applies.insert_one({{"name": name, "ID": id_, "field": field, "email": email, "text": text,
-                                              "date": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time())),
-                                              "scid": scid, "state": "waiting"}})
-                state["_id"] = result.inserted_id
+                result = applies.insert_one({"name": name, "ID": id_, "field": field, "email": email, "text": text,
+                                             "date": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time())),
+                                             "scid": scid, "state": "waiting"})
+                state["_id"] = str(result.inserted_id)
         return state
 
     '''
@@ -879,7 +854,9 @@ class DbOperate:
             if deal:
                 apply["state"] = "accepted"
                 result = self.client.Business.user.update_many({"email": apply["email"], "user_type": "USER"},
-                                                               {"user_type": "EXPERT"})
+                                                               {"user_type": "EXPERT",
+                                                                "username": apply["name"],
+                                                                "scid": apply["scid"]})
                 if result.matched_count == 0:
                     state["state"] = "fail"
                     state["reason"] = "but nothing changed"
@@ -893,19 +870,17 @@ class DbOperate:
     The 27th Method
     发送系统通知（仅管理员）
     '''
-    def send_sys_message_to_admin(self, msg_type, content):
+    def send_sys_message_to_admin(self, msg_type, content, apply_id=""):
         state = {'state': 'success', "reasons": ""}
         msg = self.client.Business.message
-        user_list = self.client.Business.user.find({"user_type": "ADMIN"},
-                                                   {"email": 1, "_id": 0, "user_name": 0, "password": 0,
-                                                    "avatar": 0, "user_type": 0, "star_list": 0, "follow_list": 0})
+        user_list = self.client.Business.user.find({"user_type": "ADMIN"})
         if len(user_list) == 0:
             state["state"] = "fail"
         else:
             for user in user_list:
                 msg.insert_one({"content": content, "email": user["email"],
                                 "date": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time())),
-                                "type": msg_type})
+                                "type": msg_type, "apply_id": apply_id})
         return state
 
     '''
@@ -915,9 +890,7 @@ class DbOperate:
     def send_sys_message_to_one(self, msg_type, content, email):
         state = {'state': 'success', "reasons": ""}
         msg = self.client.Business.message
-        user_list = self.client.Business.user.find({"email": email},
-                                                   {"email": 1, "_id": 0, "user_name": 0, "password": 0,
-                                                    "avatar": 0, "user_type": 0, "star_list": 0, "follow_list": 0})
+        user_list = self.client.Business.user.find({"email": email})
         if len(user_list) == 0:
             state["state"] = "fail"
         else:
@@ -960,6 +933,51 @@ class DbOperate:
             # 未搜索到评论
             else:
                 res['reason'] = '未搜索到相关评论'
+            return res
+        except:
+            return res
+
+    '''
+    30-1. 删除一条消息 √
+    '''
+    def delete_message_onepiece(self, user_id, message_id):
+        state = {'state': 'success', "reasons": ""}
+        msg_list = self.client.Business.message
+        if msg_list.find_one({"_id": ObjectId(message_id)}) is None:
+            state["state"] = "fail"
+            state["reasons"] = "message not found"
+        else:
+            msg_list.remove({"_id": ObjectId(message_id)})
+        return state
+
+    '''
+    30-2. 删除同种消息 √
+    '''
+    def delete_message_onetype(self, user_id, message_type):
+        state = {'state': 'success', "reasons": ""}
+        msg_list = self.client.Business.message
+        if msg_list.find_one({"email": user_id, "type": message_type}) is None:
+            state["state"] = "fail"
+            state["reasons"] = "message not found"
+        else:
+            msg_list.remove({"email": user_id, "type": message_type})
+        return state
+
+    '''
+    31. 获取认证信息
+    '''
+    def get_apply(self, apply_id):
+        res = {'state': 'fail', 'reason': '网络出错或BUG出现！'}
+        try:
+            find_mat = self.getCol('application').find_one({'_id': ObjectId(apply_id)})
+            # 成功搜索到认证材料
+            if find_mat:
+                find_mat.pop('_id')
+                res['state'] = 'success'
+                res['msg'] = find_mat
+            # 未搜索到认证材料
+            else:
+                res['reason'] = '未搜索到认证材料'
             return res
         except:
             return res
