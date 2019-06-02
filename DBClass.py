@@ -194,7 +194,7 @@ class DbOperate:
             return res
 
     '''
-    4. 查询专家（不在意专家是否注册）（返回 专家scolarID 专家姓名 机构名称 被引次数 成果数 所属领域） √
+    4-1. 查询专家（不在意专家是否注册）（返回 专家scolarID 专家姓名 机构名称 被引次数 成果数 所属领域） √
     '''
     def search_professor(self, professor_name):
         res = {'state': 'fail', 'reason': '网络出错或BUG出现！'}
@@ -222,6 +222,70 @@ class DbOperate:
                 res['reason'] = '未搜索到该专家'
             return res
         except:
+            return res
+
+    '''
+    4-2 高级搜索，匹配专家名和机构名
+    '''
+    def search_professor_nb(self, professor_name, organization_name):
+        res = {'state': 'fail', 'reason': '网络出错或BUG出现！', 'msg': []}
+        try:
+            body ={
+                    "query": {
+                    "bool": {
+                        "must" : [
+                            {"match": {"name": professor_name}},
+                            {"match": {"mechanism": organization_name}}
+                        ]
+                    }
+                },
+                "highlight": {
+                    "pre_tags" : ['<span style="font-color: red">'],
+                    "post_tags": ['</span>'],
+                    "fields": {
+                        "message": {
+                            "fragment_size": 150,
+                            "number_of_fragments": 0
+                        },
+                        "name": {},
+                        "mechanism":{}
+                    }
+                }
+            }
+            body = json.dumps(body, ensure_ascii=False)
+            print(body)
+            temp_scholars = self.es.search(index='scholar_index', body=body)
+            count = len(temp_scholars['hits']['hits'])
+            print(count)
+            scholars = []
+            for temp in temp_scholars['hits']['hits']:
+                source = temp['_source']
+                highlight = temp['highlight']
+                if 'name' in highlight.keys():
+                    source['name'] = highlight['name']
+                if 'mechanism' in highlight.keys():
+                    source['mechanism'] = highlight['mechanism']
+
+                tmp = {}
+                tmp['scid'] = source['scid']
+                tmp['name'] = source['name']
+                tmp['mechanism'] = source['mechanism']
+                tmp['citedtimes'] = source['citedtimes']
+                tmp['resultsnumber'] = source['resultsnumber']
+                tmp['field'] = source['field']
+
+                print(json.dumps(tmp, ensure_ascii=False, indent=4))
+                scholars.append(tmp)
+            if count > 0:
+                res['msg'] = scholars
+                res['state'] = 'success'
+                res['reason'] = '成功查询'
+            else:
+                res['reason'] = '未找到相关论文'
+            print(res)
+            return res
+        except:
+            res['reason'] = '未搜索到该专家'
             return res
 
     '''
@@ -345,6 +409,7 @@ class DbOperate:
             # 未搜索到该论文
             else:
                 res['reason'] = '未搜索到该论文'
+            print(res)
             return res
         except:
             return res
@@ -757,19 +822,15 @@ class DbOperate:
     The 20th Method
     回复评论
     '''
-    def reply_comment(self, from_email, comment_id, to_email, content, from_name):
+    def reply_comment(self, from_email, comment_id, to_name, content, from_name):
         state = {'state': 'success', "reason": ""}
         comment_list = self.client.Business.comment
-        user_collection = self.client.Business.user
         new_comment = comment_list.find_one({"_id": ObjectId(comment_id)})
         if new_comment is None:
             state["state"] = "fail"
             state["reason"] = "comment not found"
-        elif user_collection.find_one({"email": to_email}) is None:
-            state["state"] = "fail"
-            state["reason"] = "user not found"
         else:
-            new_comment["replies"].append({"from_email": from_email, "to_email": to_email,
+            new_comment["replies"].append({"from_email": from_email, "to_name": to_name,
                                            "date": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time())),
                                            "content": content, "from_name": from_name})
             comment_list.update({"_id": ObjectId(comment_id)}, new_comment)
@@ -817,7 +878,7 @@ class DbOperate:
         msg_list = message.find({"email": email})
         if msg_list.count() > 0:
             for msg in msg_list:
-                if 'apply_id' != "":
+                if 'apply_id' in msg.keys() and 'apply_id' != "":
                     state["messages"].append({"content": msg["content"], "date": msg["date"],
                                               "type": msg["type"], "msg_id": str(msg["_id"]),
                                               "status": msg["status"], "apply_id": msg["apply_id"]})
