@@ -955,6 +955,10 @@ class DbOperate:
         state = {'state': 'success', "reason": "", "name": "", "email": ""}
         applies = self.client.Business.application
         apply = applies.find_one({"_id": ObjectId(apply_id)})
+        if deal == "false":
+            deal = False
+        else:
+            deal = True
         if apply is None:
             state["state"] = "fail"
             state["reason"] = "apply not found"
@@ -976,6 +980,8 @@ class DbOperate:
                     state["name"] = apply["name"]
                     state["email"] = apply["email"]
             else:
+                state["name"] = apply["name"]
+                state["email"] = apply["email"]
                 applies.update_one({"_id": ObjectId(apply_id)},
                                    {"$set": {"state": "refused"}})
         return state
