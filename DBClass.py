@@ -761,19 +761,15 @@ class DbOperate:
     The 20th Method
     回复评论
     '''
-    def reply_comment(self, from_email, comment_id, to_email, content, from_name):
+    def reply_comment(self, from_email, comment_id, to_name, content, from_name):
         state = {'state': 'success', "reason": ""}
         comment_list = self.client.Business.comment
-        user_collection = self.client.Business.user
         new_comment = comment_list.find_one({"_id": ObjectId(comment_id)})
         if new_comment is None:
             state["state"] = "fail"
             state["reason"] = "comment not found"
-        elif user_collection.find_one({"email": to_email}) is None:
-            state["state"] = "fail"
-            state["reason"] = "user not found"
         else:
-            new_comment["replies"].append({"from_email": from_email, "to_email": to_email,
+            new_comment["replies"].append({"from_email": from_email, "to_name": to_name,
                                            "date": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time())),
                                            "content": content, "from_name": from_name})
             comment_list.update({"_id": ObjectId(comment_id)}, new_comment)
