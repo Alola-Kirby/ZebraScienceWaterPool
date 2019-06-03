@@ -240,7 +240,7 @@ class DbOperate:
                     }
                 },
                 "highlight": {
-                    "pre_tags" : ['<span style="font-color: red">'],
+                    "pre_tags" : ['<span style="color: red">'],
                     "post_tags": ['</span>'],
                     "fields": {
                         "message": {
@@ -262,9 +262,9 @@ class DbOperate:
                 source = temp['_source']
                 highlight = temp['highlight']
                 if 'name' in highlight.keys():
-                    source['name'] = highlight['name']
+                    source['name'] = highlight['name'][0]
                 if 'mechanism' in highlight.keys():
-                    source['mechanism'] = highlight['mechanism']
+                    source['mechanism'] = highlight['mechanism'][0]
 
                 tmp = {}
                 tmp['scid'] = source['scid']
@@ -282,7 +282,7 @@ class DbOperate:
                 res['reason'] = '成功查询'
             else:
                 res['reason'] = '未找到相关论文'
-            print(res)
+            print(json.dumps(res, ensure_ascii=False, indent=4))
             return res
         except:
             res['reason'] = '未搜索到该专家'
@@ -528,7 +528,7 @@ class DbOperate:
                     }
                 },
                 "highlight": {
-                    "pre_tags" : ['<span style="font-color: red">'],
+                    "pre_tags" : ['<span style="color: red">'],
                     "post_tags": ['</span>'],
                     "fields": {
                         "message": {
@@ -556,14 +556,14 @@ class DbOperate:
                 if 'source_journal.name' in highlight.keys():
                     source['source_journal']['name'] = highlight['source_journal.name'][0]
                 if 'year' in highlight.keys():
-                    source['year'] = highlight['year']
+                    source['year'] = highlight['year'][0]
                 if 'author' in highlight.keys():
                     for i in range(len(source['author'])):
                         for h_author in highlight['author']:
                             if len(source['author'][i]) == self.LCS(source['author'][i], h_author):
                                 source['author'][i] = h_author
                 if 'name' in highlight.keys():
-                    source['name'] = highlight['name']
+                    source['name'] = highlight['name'][0]
                 if 'abstract' in highlight.keys():
                     abstract = ''
                     for item in highlight['abstract']:
@@ -583,7 +583,7 @@ class DbOperate:
                 res['reason'] = '成功查询'
             else:
                 res['reason'] = '未找到相关论文'
-            print(res)
+            print(json.dumps(res, indent=4,ensure_ascii=False))
             return res
         except:
             return res
