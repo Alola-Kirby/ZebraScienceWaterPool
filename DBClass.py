@@ -532,15 +532,26 @@ class DbOperate:
                     "pre_tags" : ['<span style="color: red">'],
                     "post_tags": ['</span>'],
                     "fields": {
-                        "message": {
-                            "fragment_size": 150,
-                            "number_of_fragments": 0
+                        "abstract": {
+                                "fragment_size": 150,
+                                "number_of_fragments": 0
                         },
-                        "abstract": {},
-                        "name":{},
-                        "keyword":{},
-                        "author":{},
-                        "source_journal.name":{},
+                        "name":{
+                                "fragment_size": 150,
+                                "number_of_fragments": 0
+                        },
+                        "keyword":{
+                                "fragment_size": 150,
+                                "number_of_fragments": 0
+                        },
+                        "author":{
+                                "fragment_size": 150,
+                                "number_of_fragments": 0
+                        },
+                        "source_journal.name":{
+                                "fragment_size": 150,
+                                "number_of_fragments": 0
+                        },
                         "year":{}
                     }
                 },
