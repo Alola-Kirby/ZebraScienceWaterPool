@@ -250,7 +250,8 @@ class DbOperate:
                         "name": {},
                         "mechanism":{}
                     }
-                }
+                },
+                "size":100,
             }
             body = json.dumps(body, ensure_ascii=False)
             print(body)
@@ -542,7 +543,8 @@ class DbOperate:
                         "source_journal.name":{},
                         "year":{}
                     }
-                }
+                },
+                "size":100
             }
             body = json.dumps(body, ensure_ascii=False)
             print(body)
