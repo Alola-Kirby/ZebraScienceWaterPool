@@ -4,9 +4,11 @@ import Config
 import random
 import time
 import json
+import threading
 from pymongo import MongoClient
 from bson.objectid import ObjectId
 from elasticsearch import Elasticsearch
+from utils import generate_word_cloud
 
 
 class DbOperate:
@@ -251,7 +253,7 @@ class DbOperate:
                         "mechanism":{}
                     }
                 },
-                "size":100,
+                "size":10
             }
             body = json.dumps(body, ensure_ascii=False)
             print(body)
@@ -370,6 +372,11 @@ class DbOperate:
     def search_paper(self, title, page_num):
         res = {'state': 'fail', 'reason': '网络出错或BUG出现！'}
         try:
+            generate = False
+            # 第一次搜索生成关键词字符串返回
+            if page_num == '':
+                generate = True
+                page_num = 1
             # 根据标题模糊查询
             temp_papers = self.getCol('sci_source').find({'name': {'$regex': title}})
             papers = temp_papers.skip((page_num - 1) * Config.PAPER_NUM).limit(Config.PAPER_NUM)
@@ -387,13 +394,26 @@ class DbOperate:
                 res['msg'] = papers_list
                 res['count'] = temp_papers.count()
                 res['state'] = 'success'
+                if generate:
+                    path = "keyword_" + str(round(time.time()))
+                    res['word_cloud_path'] = Config.DOMAIN_NAME + "/static/wordCloud/" + path + '.jpg'
+                    t = threading.Thread(target=self.get_word_cloud, args=(title, path,))
+                    t.start()
             # 根据标题模糊匹配未查找到相关论文
             else:
                 res['reason'] = '未查找到相关论文'
             return res
         except:
             return res
-
+    '''
+    8-1-1. 生成词云
+    '''
+    def get_word_cloud(self, title, path):
+        temp_papers = self.getCol('sci_source').find({'name': {'$regex': title}}, {'keyword': 1})
+        str_keyword = ''
+        for k in temp_papers:
+            str_keyword = str_keyword + ' '.join(k['keyword']) + ' '
+        generate_word_cloud(str_keyword, path)
     '''
     8-2. 获取论文全部信息 √
     '''
@@ -419,7 +439,8 @@ class DbOperate:
     8-3. 论文高级检索
     '''
     def search_paper_nb(self, title, page_num, keyw_and, keyw_or, keyw_not, author, journal, start_time, end_time ):
-        res = {'state': 'fail', 'reason': '网络出错或BUG出现！', 'count': 0, 'msg': []}
+        res = {'state': 'fail', 'reason': '网络出错或BUG出现！', 'count': 0,
+               'total_count': 0, 'msg': []}
         try:
             # 根据条件进行高级查询
             must_match = ''
@@ -555,13 +576,51 @@ class DbOperate:
                         "year":{}
                     }
                 },
-                "size":100
+                'size': 10,
             }
+            total_count = 0
+            if page_num == '':
+                page_num = 1
+                temp_body = {
+                    "query": {
+                        "bool": {
+                            "filter": filter_query,
+                            "must": must_query,
+                            "must_not": must_not_query,
+                            "should": should_query
+                        }
+                    }
+                }
+                temp_body = json.dumps(temp_body, ensure_ascii=False)
+                temp_res = self.es.count(index='paper_index', body=temp_body)
+                total_count = temp_res['count']
+                print(total_count)
+                temp_body = {
+                    "_source": {
+                        "include": [
+                            "keyword"
+                        ]
+                    },
+                    "size": total_count,
+                    "query": {
+                        "bool": {
+                            "filter": filter_query,
+                            "must": must_query,
+                            "must_not": must_not_query,
+                            "should": should_query
+                        }
+                    }
+                }
+                path = "keyword_" + str(round(time.time()))
+                temp_body = json.dumps(temp_body, ensure_ascii=False)
+                res['word_cloud_path'] = Config.DOMAIN_NAME + "/static/wordCloud/" + path + '.jpg'
+                t = threading.Thread(target=self.get_word_cloud2, args=(temp_body, path,))
+                t.start()
+
+            body['from'] = (page_num - 1) * 10
             body = json.dumps(body, ensure_ascii=False)
-            print(body)
-            temp_papers = self.es.search(index='paper_index',body=body)
+            temp_papers = self.es.search(index='paper_index', body=body)
             count = len(temp_papers['hits']['hits'])
-            print(count)
             papers = []
             for temp in temp_papers['hits']['hits']:
                 source = temp['_source']
@@ -587,20 +646,28 @@ class DbOperate:
                         for kw in highlight['keyword']:
                             if len(source['keyword'][i]) == self.LCS(source['keyword'][i],kw):
                                 source['keyword'][i] = kw
-                print(json.dumps(source,ensure_ascii=False,indent=4))
                 papers.append(source)
-            if count>0:
+            res['total_count'] = total_count
+            if count > 0:
                 res['count'] = count
-                res['msg'] = papers[(page_num-1)*10 : page_num*10]
+                res['msg'] = papers
                 res['state'] = 'success'
                 res['reason'] = '成功查询'
             else:
                 res['reason'] = '未找到相关论文'
-            print(json.dumps(res, indent=4,ensure_ascii=False))
             return res
         except:
             return res
-
+    '''
+    8-3-1 高级搜索生成词云
+    '''
+    def get_word_cloud2(self, body, path):
+        res = self.es.search(index='paper_index', body=body)
+        str_keyword = ""
+        for temp in res['hits']['hits']:
+            source = temp['_source']
+            str_keyword = str_keyword + ' '.join(source['keyword']) + ' '
+        generate_word_cloud(str_keyword, path)
     '''
     9. 查询机构 √
     '''
