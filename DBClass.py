@@ -56,7 +56,7 @@ class DbOperate:
         find_user['star_list'].clear()
         res['reason'] = '收藏列表获取失败'
         for one_star in tmp_star:
-            star_info = self.getCol('sci_source').find_one({'paperid': one_star})
+            star_info = self.getCol('paper').find_one({'paperid': one_star})
             star_info.pop('_id')
             star_info.pop('source_url')
             star_info.pop('free_download_url')
@@ -378,9 +378,9 @@ class DbOperate:
                 generate = True
                 page_num = 1
             # 根据标题模糊查询
-            temp_papers = self.getCol('sci_source').find({'name': {'$regex': title}})
+            temp_papers = self.getCol('paper').find({'name': {'$regex': title}})
             papers = temp_papers.skip((page_num - 1) * Config.PAPER_NUM).limit(Config.PAPER_NUM)
-            test = self.getCol('sci_source').find_one({'name': {'$regex': title}})
+            test = self.getCol('paper').find_one({'name': {'$regex': title}})
             # 根据标题模糊匹配查找到相关论文列表
             if test:
                 papers_list = []
@@ -409,7 +409,7 @@ class DbOperate:
     8-1-1. 生成词云
     '''
     def get_word_cloud(self, title, path):
-        temp_papers = self.getCol('sci_source').find({'name': {'$regex': title}}, {'keyword': 1})
+        temp_papers = self.getCol('paper').find({'name': {'$regex': title}}, {'keyword': 1})
         str_keyword = ''
         for k in temp_papers:
             str_keyword = str_keyword + ' '.join(k['keyword']) + ' '
@@ -420,7 +420,7 @@ class DbOperate:
     def get_paper_details(self, paper_id):
         res = {'state': 'fail', 'reason': '网络出错或BUG出现！'}
         try:
-            find_paper = self.getCol('sci_source').find_one({'paperid': paper_id})
+            find_paper = self.getCol('paper').find_one({'paperid': paper_id})
             # 成功搜索到该论文
             if find_paper:
                 find_paper.pop('_id')
@@ -832,7 +832,7 @@ class DbOperate:
     def rm_resource(self, professor_id, paper_id):
         res = {'state': 'success', 'reason': '请求删除科技资源成功'}
         scholar = self.getCol('scmessage').find_one({'scid': professor_id})
-        paper = self.getCol('sci_source').find_one({'paperid': paper_id})
+        paper = self.getCol('paper').find_one({'paperid': paper_id})
         try:
             resource_application = self.client.Business.resource_application
             resource_application.insert_one({{"professor_id": professor_id, "paper_id": paper_id,
@@ -882,7 +882,7 @@ class DbOperate:
     def comment(self, email, paper_id, content):
         state = {'state': 'success', "reason": ""}
         comment_list = self.client.Business.comment
-        papers = self.client.Business.sci_source
+        papers = self.client.Business.paper
         query_paper_id = {"paperid": paper_id}
         user_collection = self.client.Business.user
         if papers.find_one(query_paper_id) is None:
