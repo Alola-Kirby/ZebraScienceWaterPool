@@ -48,6 +48,7 @@ class DbOperate:
     '''
     def get_user_data(self, find_user, res):
         # 去掉某些不必要字段
+        find_user.pop('_id')
         find_user.pop('password')
         # 将star_list和follow_list中的id和简略信息一并返回
         # 令star_list列表中存放“资源的简略信息”
@@ -55,22 +56,30 @@ class DbOperate:
         find_user['star_list'].clear()
         res['reason'] = '收藏列表获取失败'
         for one_star in tmp_star:
-            star_info = self.getCol('paper').find_one({'paperid': one_star}, {'_id': 0, 'source_url': 0,
-                                                                              'free_download_url': 0, 'abstract': 0})
+            star_info = self.getCol('paper').find_one({'paperid': one_star})
+            star_info.pop('_id')
+            star_info.pop('source_url')
+            star_info.pop('free_download_url')
+            star_info.pop('abstract')
             find_user['star_list'].append(star_info)
         # 令follow_list列表中存放“用户的简略信息”
         tmp_follow = copy.deepcopy(find_user['follow_list'])
         find_user['follow_list'].clear()
         res['reason'] = '关注列表获取失败'
         for one_follow in tmp_follow:
-            follow_info_simple = self.getCol('scmessage').find_one({'scid': one_follow}, {'scid': 1, 'name': 1,
-                                                                                          'mechanism': 1, 'citedtimes': 1,
-                                                                                          'resultsnumber': 1, 'field': 1})
+            follow_info_all = self.getCol('scmessage').find_one({'scid': one_follow})
+            follow_info_simple = {}
+            follow_info_simple['scid'] = one_follow
+            follow_info_simple['name'] = follow_info_all['name']
+            follow_info_simple['mechanism'] = follow_info_all['mechanism']
+            follow_info_simple['citedtimes'] = follow_info_all['citedtimes']
+            follow_info_simple['resultsnumber'] = follow_info_all['resultsnumber']
+            follow_info_simple['field'] = follow_info_all['field']
             find_user['follow_list'].append(follow_info_simple)
         # 若是专家类型用户登录，额外返回专家信息，暂时只有论文列表paper_list
         if find_user['user_type'] == 'EXPERT':
             res['reason'] = '获取论文列表失败'
-            same_exp = self.getCol('scmessage').find_one({'scid': find_user['scid']}, {'paper': 1})
+            same_exp = self.getCol('scmessage').find_one({'scid': find_user['scid']})
             find_user['paper_list'] = same_exp['paper']
         # 设置返回值
         res['state'] = 'success'
@@ -95,13 +104,13 @@ class DbOperate:
     def generate_email_code(self, email):
         res = {'state': 'fail', 'reason': '网络出错或BUG出现！'}
         try:
-            test = self.getCol('user').find_one({'email': email}, {'_id': 1})
+            test = self.getCol('user').find_one({'email': email})
             # 邮箱已被注册
             if test:
                 res['reason'] = '邮箱已被注册'
             else:
                 col_tempcode = self.getCol('tempcode')
-                search_res2 = col_tempcode.find_one({'email': email}, {'_id': 1})
+                search_res2 = col_tempcode.find_one({'email': email})
                 # 申请过注册
                 if search_res2:
                     col_tempcode.delete_one(search_res2)
@@ -134,8 +143,8 @@ class DbOperate:
     def create_user(self, password, email, username, email_code):
         res = {'state': 'fail', 'reason': '网络出错或BUG出现！'}
         try:
-            has_user = self.getCol('user').find_one({'email': email}, {'_id': 1})
-            real_code = self.getCol('tempcode').find_one({'email': email}, {'code': 1, 'time': 1})
+            has_user = self.getCol('user').find_one({'email': email})
+            real_code = self.getCol('tempcode').find_one({'email': email})
             # 这里想记录时间差，但是得先保证 real_code 不为空，否则异常
             if real_code:
                 time_dif = time.time() - real_code['time']
@@ -171,7 +180,7 @@ class DbOperate:
     def compare_password(self, password, email):
         res = {'state': 'fail', 'reason': '网络出错或BUG出现！'}
         try:
-            find_user = self.getCol('user').find_one({'email': email}, {'_id': 0})
+            find_user = self.getCol('user').find_one({'email': email})
             # 搜索到唯一用户
             if find_user:
                 real_psw = find_user['password']
@@ -187,23 +196,28 @@ class DbOperate:
             return res
 
     '''
-    4-0. 搜索全部同名专家（不在意专家是否注册）（返回 专家scolarID 专家姓名 机构名称 被引次数 成果数 所属领域） √
-         （主要辅助接口25）
+    4-0. 查询同名专家列表（不在意专家是否注册）（返回 专家scolarID 专家姓名 机构名称 被引次数 成果数 所属领域） √
+         （仅供接口25使用）
     '''
     def search_professor_samename(self, professor_name):
         res = {'state': 'fail', 'reason': '网络出错或BUG出现！'}
         try:
             # 不在意专家是否已注册
-            experts = self.getCol('scmessage').find({'name': professor_name},
-                                                    {'scid': 1, 'name': 1, 'mechanism': 1, 'citedtimes': 1,
-                                                     'resultsnumber': 1, 'field': 1})
-            test = self.getCol('scmessage').find_one({'name': professor_name}, {'_id': 1})
+            experts = self.getCol('scmessage').find({'name': professor_name}, {'paper': 0})
+            test = self.getCol('scmessage').find_one({'name': professor_name}, {'paper': 0})
             # 在专家总表中搜索到该姓名专家
             if test:
                 experts_list = []
                 # 根据所查同名专家列表experts，逐个专家提取其中基本信息到tmp中，并放入结果experts_list中
                 for one_exp in experts:
-                    experts_list.append(one_exp)
+                    tmp = {}
+                    tmp['scid'] = one_exp['scid']
+                    tmp['name'] = one_exp['name']
+                    tmp['mechanism'] = one_exp['mechanism']
+                    tmp['citedtimes'] = one_exp['citedtimes']
+                    tmp['resultsnumber'] = one_exp['resultsnumber']
+                    tmp['field'] = one_exp['field']
+                    experts_list.append(tmp)
                 res['msg'] = experts_list
                 res['state'] = 'success'
             # 专家总表中没有记录该姓名专家信息
@@ -214,22 +228,27 @@ class DbOperate:
             return res
 
     '''
-    4-1. 模糊匹配查询专家（不在意专家是否注册）（返回 专家scolarID 专家姓名 机构名称 被引次数 成果数 所属领域） √
+    4-1. 查询专家（不在意专家是否注册）（返回 专家scolarID 专家姓名 机构名称 被引次数 成果数 所属领域） √
     '''
     def search_professor(self, professor_name):
         res = {'state': 'fail', 'reason': '网络出错或BUG出现！'}
         try:
             # 不在意专家是否已注册
-            experts = self.getCol('scmessage').find({'name': {'$regex': professor_name}},
-                                                    {'scid': 1, 'name': 1, 'mechanism': 1, 'citedtimes': 1,
-                                                     'resultsnumber': 1, 'field': 1}).limit(10)
-            test = self.getCol('scmessage').find_one({'name': {'$regex': professor_name}}, {'_id': 1})
+            experts = self.getCol('scmessage').find({'name': {'$regex': professor_name}}, {'paper': 0}).limit(10)
+            test = self.getCol('scmessage').find_one({'name': {'$regex': professor_name}}, {'paper': 0})
             # 在专家总表中搜索到该姓名专家
             if test:
                 experts_list = []
                 # 根据所查同名专家列表experts，逐个专家提取其中基本信息到tmp中，并放入结果experts_list中
                 for one_exp in experts:
-                    experts_list.append(one_exp)
+                    tmp = {}
+                    tmp['scid'] = one_exp['scid']
+                    tmp['name'] = one_exp['name']
+                    tmp['mechanism'] = one_exp['mechanism']
+                    tmp['citedtimes'] = one_exp['citedtimes']
+                    tmp['resultsnumber'] = one_exp['resultsnumber']
+                    tmp['field'] = one_exp['field']
+                    experts_list.append(tmp)
                 res['msg'] = experts_list
                 res['state'] = 'success'
             # 专家总表中没有记录该姓名专家信息
@@ -313,9 +332,12 @@ class DbOperate:
     def get_professor_details(self, professor_id):
         res = {'state': 'fail', 'reason': '网络出错或BUG出现！'}
         try:
-            find_exp = self.getCol('scmessage').find_one({'scid': professor_id}, {'_id': 0, 'scurl': 0})
+            find_exp = self.getCol('scmessage').find_one({'scid': professor_id})
             # 专家总表中查询到该专家
             if find_exp:
+                # 去除部分没用的字段
+                find_exp.pop('_id')
+                find_exp.pop('scurl')
                 # 对于copinfo（合作专家）字段，从其中的url字段提取scolarID，并将其修改为scid字段
                 tmp = find_exp['copinfo']
                 res['reason'] = '专家ID提取失败'
@@ -348,7 +370,7 @@ class DbOperate:
     def get_user_details(self, email):
         res = {'state': 'fail', 'reason': '网络出错或BUG出现！'}
         try:
-            find_user = self.getCol('user').find_one({'email': email}, {'_id': 0})
+            find_user = self.getCol('user').find_one({'email': email})
             # 搜索到指定用户
             if find_user:
                 self.get_user_data(find_user, res)
@@ -365,9 +387,10 @@ class DbOperate:
     def get_organization_details(self, organization_name):
         res = {'state': 'fail', 'reason': '网络出错或BUG出现！'}
         try:
-            find_org = self.getCol('mechanism').find_one({'mechanism': organization_name}, {'_id': 0})
+            find_org = self.getCol('mechanism').find_one({'mechanism': organization_name})
             # 成功搜索到该机构
             if find_org:
+                find_org.pop('_id')
                 # 之后在这里可能进行对简介部分字符串（长度、格式）的处理
                 res['state'] = 'success'
                 res['msg'] = find_org
@@ -391,15 +414,18 @@ class DbOperate:
                 page_num = 1
             # 根据标题模糊查询
             page_num = int(page_num)
-            temp_papers = self.getCol('paper').find({'name': {'$regex': title}}, {'_id': 0, 'source_url': 0,
-                                                                                  'free_download_url': 0})
+            temp_papers = self.getCol('paper').find({'name': {'$regex': title}})
             papers = temp_papers.skip((page_num - 1) * Config.PAPER_NUM).limit(Config.PAPER_NUM)
-            test = self.getCol('paper').find_one({'name': {'$regex': title}}, {'_id': 1})
+            test = self.getCol('paper').find_one({'name': {'$regex': title}})
             # 根据标题模糊匹配查找到相关论文列表
             if test:
                 papers_list = []
-                # 根据所查到的论文列表papers，并放入结果papers_list中
+                # 根据所查到的论文列表papers，逐个论文提取其中基本信息（去除不必要字段），并放入结果papers_list中
                 for one_paper in papers:
+                    one_paper.pop('_id')
+                    one_paper.pop('source_url')
+                    one_paper.pop('free_download_url')
+                    # 之后在这里可能需要对过长的摘要做一些内容上的删减
                     papers_list.append(one_paper)
                 res['msg'] = papers_list
                 res['count'] = temp_papers.count()
@@ -430,14 +456,17 @@ class DbOperate:
     def get_paper_details(self, paper_id):
         res = {'state': 'fail', 'reason': '网络出错或BUG出现！'}
         try:
-            find_paper = self.getCol('paper').find_one({'paperid': paper_id}, {'_id': 0})
+            find_paper = self.getCol('paper').find_one({'paperid': paper_id})
             # 成功搜索到该论文
             if find_paper:
+                find_paper.pop('_id')
+                # 之后在这里可能对论文的数据内容做处理，暂时返回全部内容
                 res['state'] = 'success'
                 res['msg'] = find_paper
             # 未搜索到该论文
             else:
                 res['reason'] = '未搜索到该论文'
+            print(res)
             return res
         except:
             return res
@@ -683,14 +712,16 @@ class DbOperate:
         try:
             page_num = int(page_num)
             # 根据名称模糊查询
-            temp_orgs = self.getCol('mechanism').find({'mechanism': {'$regex': org_name}}, {'_id': 0})
+            temp_orgs = self.getCol('mechanism').find({'mechanism': {'$regex': org_name}})
             orgs = temp_orgs.skip((page_num - 1) * Config.ORG_NUM).limit(Config.ORG_NUM)
-            test = self.getCol('mechanism').find_one({'mechanism': {'$regex': org_name}}, {'_id': 1})
+            test = self.getCol('mechanism').find_one({'mechanism': {'$regex': org_name}})
             # 根据名称模糊匹配查找到相关机构列表
             if test:
                 org_list = []
-                # 根据所查到的机构列表orgs，并放入结果org_list中
+                # 根据所查到的机构列表orgs，逐个机构提取其中基本信息（去除不必要字段），并放入结果org_list中
                 for one_org in orgs:
+                    one_org.pop('_id')
+                    # 之后在这里可能需要对简介部分做一些内容上的删减
                     org_list.append(one_org)
                 res['msg'] = org_list
                 res['count'] = temp_orgs.count()
@@ -711,7 +742,7 @@ class DbOperate:
     def collect(self, email, paper_id):
         res = {'state': 'success', 'reason': '用户已收藏该资源'}
         try:
-            user = self.getCol('user').find_one({'email': email}, {'star_list': 1, 'email': 1})
+            user = self.getCol('user').find_one({'email': email})
             star_list = user['star_list']
             if paper_id not in user['star_list']:
                 res = {'state': 'success', 'reason': '用户尚未收藏该资源'}
@@ -732,7 +763,7 @@ class DbOperate:
     '''
     def is_collect(self, email, paper_id):
         res = {'state': 'yes', 'reason': '用户已收藏该资源'}
-        user = self.getCol('user').find_one({'email': email}, {'star_list': 1})
+        user = self.getCol('user').find_one({'email': email})
         if paper_id not in user['star_list']:
             res = {'state': 'no', 'reason': '用户尚未收藏该资源'}
         return res
@@ -745,7 +776,7 @@ class DbOperate:
     def follow(self, email, professor_id):
         res = {'state': 'success', 'reason': '用户已关注该学者'}
         try:
-            user = self.getCol('user').find_one({'email': email}, {'email': 1, 'follow_list': 1})
+            user = self.getCol('user').find_one({'email': email})
             follow_list = user['follow_list']
             if professor_id in user['follow_list']:
                 follow_list.remove(professor_id)
@@ -765,7 +796,7 @@ class DbOperate:
     测试成功！
     '''
     def is_follow(self, email, professor_id):
-        user = self.getCol('user').find_one({'email': email}, {'follow_list': 1})
+        user = self.getCol('user').find_one({'email': email})
         res = {'state': 'yes', 'reason': '用户已关注该专家'}
         if professor_id not in user['follow_list']:
             res = {'state': 'no', 'reason': '用户未关注该专家'}
@@ -777,7 +808,7 @@ class DbOperate:
     测试成功，但是不知是否要判断修改后的用户名或头像与之前一样
     '''
     def change_info(self, email, username, avatar):
-        user = self.getCol('user').find_one({'email': email}, {'user_type': 1})
+        user = self.getCol('user').find_one({'email': email})
         res = {'state': 'success', 'reason': '修改用户名成功'}
         try:
             if username != '':
@@ -801,7 +832,7 @@ class DbOperate:
     测试成功
     '''
     def change_pwd(self, email, old_password, new_password):
-        user = self.getCol('user').find_one({'email': email}, {'email': 1, 'password': 1})
+        user = self.getCol('user').find_one({'email': email})
         res = {'state': 'success', 'reason': '修改密码成功'}
         try:
             if user['password'] != old_password:
@@ -895,10 +926,10 @@ class DbOperate:
         papers = self.client.Business.paper
         query_paper_id = {"paperid": paper_id}
         user_collection = self.client.Business.user
-        if papers.find_one(query_paper_id, {'_id': 1}) is None:
+        if papers.find_one(query_paper_id) is None:
             state["state"] = "fail"
             state["reason"] = "paper not found"
-        elif user_collection.find_one({"email": email}, {'_id': 1}) is None:
+        elif user_collection.find_one({"email": email}) is None:
             state["state"] = "fail"
             state["reason"] = "user not found"
         else:
@@ -915,7 +946,7 @@ class DbOperate:
     def reply_comment(self, from_email, comment_id, to_name, content, from_name):
         state = {'state': 'success', "reason": ""}
         comment_list = self.client.Business.comment
-        new_comment = comment_list.find_one({"_id": ObjectId(comment_id)}, {'replies': 1})
+        new_comment = comment_list.find_one({"_id": ObjectId(comment_id)})
         if new_comment is None:
             state["state"] = "fail"
             state["reason"] = "comment not found"
@@ -933,7 +964,7 @@ class DbOperate:
     def delete_comment(self, comment_id):
         state = {'state': 'success', "reason": ""}
         comment_list = self.client.Business.comment
-        if comment_list.find_one({"_id": ObjectId(comment_id)}, {'_id': 1}) is None:
+        if comment_list.find_one({"_id": ObjectId(comment_id)}) is None:
             state["state"] = "fail"
             state["reason"] = "comment not found"
         else:
@@ -947,7 +978,7 @@ class DbOperate:
     def send_sys_message_to_all(self, msg_type, content):
         state = {'state': 'success', "reason": ""}
         msg = self.client.Business.message
-        user_list = self.client.Business.user.find({"user_type": {"$ne": "ADMIN"}}, {'email': 1})
+        user_list = self.client.Business.user.find({"user_type": {"$ne": "ADMIN"}})
         if user_list.count() == 0:
             state["state"] = "fail"
             state["reason"] = "获取非管理员用户信息失败"
@@ -987,12 +1018,12 @@ class DbOperate:
     def certification(self, email, name, id_, field, text, scid):
         state = {'state': 'success', "reason": "", "_id": ""}
         applies = self.client.Business.application
-        expert_list = self.client.Business.user.find_one({"user_type": "EXPERT", "email": email}, {'_id': 1})
+        expert_list = self.client.Business.user.find_one({"user_type": "EXPERT", "email": email})
         if expert_list:
             state["state"] = "fail"
             state["reason"] = "该邮箱已被其他专家认证"
         else:
-            app_list = applies.find_one({"email": email, "state": "waiting"}, {'_id': 1})
+            app_list = applies.find_one({"email": email, "state": "waiting"})
             if app_list:
                 state["state"] = "fail"
                 state["reason"] = "您已提交申请，请勿重复提交"
@@ -1015,15 +1046,20 @@ class DbOperate:
             if big_result['state'] == 'success':
                 exp_detail = self.getCol('scmessage')
                 # 已注册专家列表
-                reg_exp = self.getCol('user').find({'user_type': 'EXPERT', 'username': professor_name}, {'scid': 1})
+                reg_exp = self.getCol('user').find({'user_type': 'EXPERT', 'username': professor_name})
                 # 待修改的未注册专家列表（现在为全部同名专家列表）
                 noreg_exp = copy.deepcopy(big_result['msg'])
                 # 全部同名专家列表 - 已注册专家列表
                 for exp in reg_exp:
-                    one_exp = exp_detail.find_one({'scid': exp['scid']},
-                                                  {'scid': 1, 'name': 1, 'mechanism': 1, 'citedtimes': 1,
-                                                   'resultsnumber': 1, 'field': 1})
-                    noreg_exp.remove(one_exp)
+                    one_exp = exp_detail.find_one({'scid': exp['scid']})
+                    tmp = {}
+                    tmp['scid'] = one_exp['scid']
+                    tmp['name'] = one_exp['name']
+                    tmp['mechanism'] = one_exp['mechanism']
+                    tmp['citedtimes'] = one_exp['citedtimes']
+                    tmp['resultsnumber'] = one_exp['resultsnumber']
+                    tmp['field'] = one_exp['field']
+                    noreg_exp.remove(tmp)
                 res['msg'] = noreg_exp
                 res['state'] = 'success'
             else:
@@ -1078,7 +1114,7 @@ class DbOperate:
     def send_sys_message_to_admin(self, msg_type, content, apply_id=""):
         state = {'state': 'success', "reason": ""}
         msg = self.client.Business.message
-        user_list = self.client.Business.user.find({"user_type": "ADMIN"}, {'email': 1})
+        user_list = self.client.Business.user.find({"user_type": "ADMIN"})
         if user_list.count() == 0:
             state["state"] = "fail"
             state["reason"] = "获取管理员信息失败"
@@ -1096,7 +1132,7 @@ class DbOperate:
     def send_sys_message_to_one(self, msg_type, content, email):
         state = {'state': 'success', "reason": ""}
         msg = self.client.Business.message
-        user_list = self.client.Business.user.find({"email": email}, {'email': 1})
+        user_list = self.client.Business.user.find({"email": email})
         if user_list.count() == 0:
             state["state"] = "fail"
             state["reason"] = "未获取到用户信息"
@@ -1114,13 +1150,14 @@ class DbOperate:
     def get_comment(self, paper_id):
         res = {'state': 'fail', 'reason': '网络出错或BUG出现！'}
         try:
-            find_com = self.getCol('comment').find({'paper_id': paper_id}, {'paper_id': 0})
-            test = self.getCol('comment').find_one({'paper_id': paper_id}, {'_id': 1})
+            find_com = self.getCol('comment').find({'paper_id': paper_id})
+            test = self.getCol('comment').find_one({'paper_id': paper_id})
             # 成功搜索到相关评论
             if test:
                 comment_list = []
                 # 对每个评论，去掉不必要字段，把email替换为用户名
                 for one_com in find_com:
+                    one_com.pop('paper_id')
                     # 将评论者信息（id 用户名）封装到一个字典里
                     from_user_info = {}
                     find_user = self.getCol('user').find_one({'email': one_com['email']})
@@ -1149,7 +1186,7 @@ class DbOperate:
     def delete_message_onepiece(self, user_id, message_id):
         state = {'state': 'success', "reason": ""}
         msg_list = self.client.Business.message
-        if msg_list.find_one({"_id": ObjectId(message_id)}, {'_id': 1}) is None:
+        if msg_list.find_one({"_id": ObjectId(message_id)}) is None:
             state["state"] = "fail"
             state["reason"] = "message not found"
         else:
@@ -1162,7 +1199,7 @@ class DbOperate:
     def delete_message_onetype(self, user_id, message_type):
         state = {'state': 'success', "reason": ""}
         msg_list = self.client.Business.message
-        if msg_list.find_one({"email": user_id, "type": message_type}, {'_id': 1}) is None:
+        if msg_list.find_one({"email": user_id, "type": message_type}) is None:
             state["state"] = "fail"
             state["reason"] = "message not found"
         else:
@@ -1175,9 +1212,10 @@ class DbOperate:
     def get_apply(self, apply_id):
         res = {'state': 'fail', 'reason': '网络出错或BUG出现！'}
         try:
-            find_mat = self.getCol('application').find_one({'_id': ObjectId(apply_id)}, {'_id': 0})
+            find_mat = self.getCol('application').find_one({'_id': ObjectId(apply_id)})
             # 成功搜索到认证材料
             if find_mat:
+                find_mat.pop('_id')
                 res['state'] = 'success'
                 res['msg'] = find_mat
             # 未搜索到认证材料
@@ -1194,7 +1232,7 @@ class DbOperate:
         res = {'state': 'fail', 'reason': '网络出错或BUG出现！'}
         try:
             msg_list = self.getCol('message')
-            find_msg = msg_list.find_one({'_id': ObjectId(msg_id)}, {'_id': 1})
+            find_msg = msg_list.find_one({'_id': ObjectId(msg_id)})
             # 成功搜索到该条消息
             if find_msg:
                 msg_list.update_one({"_id": ObjectId(msg_id)},
