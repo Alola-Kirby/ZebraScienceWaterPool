@@ -202,8 +202,8 @@ class DbOperate:
         res = {'state': 'fail', 'reason': '网络出错或BUG出现！'}
         try:
             # 不在意专家是否已注册
-            experts = self.getCol('scmessage').find({'name': professor_name})
-            test = self.getCol('scmessage').find_one({'name': professor_name})
+            experts = self.getCol('scmessage').find({'name': {'$regex': professor_name}}).limit(10)
+            test = self.getCol('scmessage').find_one({'name': {'$regex': professor_name}})
             # 在专家总表中搜索到该姓名专家
             if test:
                 experts_list = []
@@ -232,13 +232,13 @@ class DbOperate:
     def search_professor_nb(self, professor_name, organization_name):
         res = {'state': 'fail', 'reason': '网络出错或BUG出现！', 'msg': []}
         try:
+            must_query = [{"match": {"name": professor_name}}]
+            if organization_name != '':
+                must_query.append({"match": {"mechanism": organization_name}})
             body ={
                     "query": {
                     "bool": {
-                        "must" : [
-                            {"match": {"name": professor_name}},
-                            {"match": {"mechanism": organization_name}}
-                        ]
+                        "must": must_query
                     }
                 },
                 "highlight": {
@@ -378,6 +378,7 @@ class DbOperate:
                 generate = True
                 page_num = 1
             # 根据标题模糊查询
+            page_num = int(page_num)
             temp_papers = self.getCol('paper').find({'name': {'$regex': title}})
             papers = temp_papers.skip((page_num - 1) * Config.PAPER_NUM).limit(Config.PAPER_NUM)
             test = self.getCol('paper').find_one({'name': {'$regex': title}})
@@ -616,7 +617,7 @@ class DbOperate:
                 res['word_cloud_path'] = Config.DOMAIN_NAME + "/static/wordCloud/" + path + '.jpg'
                 t = threading.Thread(target=self.get_word_cloud2, args=(temp_body, path,))
                 t.start()
-
+            page_num = int(page_num)
             body['from'] = (page_num - 1) * 10
             body = json.dumps(body, ensure_ascii=False)
             temp_papers = self.es.search(index='paper_index', body=body)
@@ -674,6 +675,7 @@ class DbOperate:
     def search_organization(self, org_name, page_num):
         res = {'state': 'fail', 'reason': '网络出错或BUG出现！'}
         try:
+            page_num = int(page_num)
             # 根据名称模糊查询
             temp_orgs = self.getCol('mechanism').find({'mechanism': {'$regex': org_name}})
             orgs = temp_orgs.skip((page_num - 1) * Config.ORG_NUM).limit(Config.ORG_NUM)
